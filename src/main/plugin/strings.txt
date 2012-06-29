@@ -1,0 +1,12 @@
+ICKSTREAM
+	EN	ickStream
+
+PLUGIN_ICKSTREAM
+	EN	ickStream
+
+SETUP_PLUGIN_ICKSTREAM_GROUP
+	EN	ickStream
+
+SETUP_PLUGIN_ICKSTREAM_GROUP_DESC
+	EN	The ickStream plugin makes the Logitech Media Server library available to other ickStream devices.
+

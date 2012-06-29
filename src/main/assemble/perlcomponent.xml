@@ -1,0 +1,19 @@
+<component>
+    <fileSets>
+        <fileSet>
+            <directory>src/main/plugin</directory>
+            <outputDirectory>IckStreamPlugin</outputDirectory>
+            <excludes>
+                <exclude>install.xml</exclude>
+            </excludes>
+        </fileSet>
+        <fileSet>
+            <directory>src/main/plugin</directory>
+            <outputDirectory>IckStreamPlugin</outputDirectory>
+            <includes>
+                <include>install.xml</include>
+            </includes>
+            <filtered>true</filtered>
+        </fileSet>
+    </fileSets>
+</component>

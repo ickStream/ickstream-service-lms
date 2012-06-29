@@ -1,0 +1,15 @@
+<component>
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>IckStreamPlugin</outputDirectory>
+            <useProjectArtifact>false</useProjectArtifact>
+            <unpack>false</unpack>
+            <scope>runtime</scope>
+            <useTransitiveDependencies>false</useTransitiveDependencies>
+            <includes>
+                <include>com.ickstream.common.ickservice:ickHttpServiceWrapper</include>
+                <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI</include>
+            </includes>
+        </dependencySet>
+    </dependencySets>
+</component>
