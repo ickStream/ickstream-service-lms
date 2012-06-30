@@ -493,7 +493,7 @@ sub findAlbums {
 		
 		my $item = {
 			'id' => "$serverPrefix:album:$albumId",
-			'name' => $albumTitle,
+			'text' => $albumTitle,
 			'type' => "album",
 			'itemAttributes' => {
 				'id' => "album:$albumId",
@@ -524,7 +524,7 @@ sub findArtists {
 
 	my @items = ();
 	
-	my $sql = 'SELECT contributors.id,contributors.name FROM contributors ';
+	my $sql = 'SELECT contributors.id,contributors.name FROM contributors JOIN albums ON albums.contributor=contributors.id ';
 	my $order_by = undef;
 	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
 	$order_by = "contributors.namesort $collate";
@@ -549,7 +549,7 @@ sub findArtists {
 		
 		my $item = {
 			'id' => "$serverPrefix:artist:$artistId",
-			'name' => $artistName,
+			'text' => $artistName,
 			'type' => "artist",
 			'itemAttributes' => {
 				'id' => "artist:$artistId",
@@ -653,7 +653,7 @@ sub findTracks {
 		});
 		my $item = {
 			'id' => "$serverPrefix:track:$trackId",
-			'name' => (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle,
+			'text' => (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle,
 			'type' => "track",
 			'streamingRefs' => \@streamingRefs,
 			'itemAttributes' => {
