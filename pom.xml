@@ -22,80 +22,133 @@
             </plugins>
         </pluginManagement>
         <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-assembly-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>make-server-assembly</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>single</goal>
-                                </goals>
-                                <configuration>
-                                    <finalName>${project.artifactId}-0.1-${com.ickstream.os}</finalName>
-                                    <appendAssemblyId>false</appendAssemblyId>
-                                    <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
-                                    <attach>true</attach>
-                                    <descriptors>
-                                        <descriptor>src/main/assemble/serverzippackage.xml</descriptor>
-                                    </descriptors>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    
-                    </plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>make-server-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>${project.artifactId}-0.1-${com.ickstream.os}</finalName>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
+                            <attach>true</attach>
+                            <descriptors>
+                                <descriptor>src/main/assemble/serverzippackage.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>repository</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <checksum file="target/IckStreamPlugin-0.1-${com.ickstream.os}.zip" algorithm="SHA-1"
+                                          property="com.ickstream.services.lms.sha"/>
+                                <copy todir="target" filtering="true">
+                                    <filterset begintoken="${" endtoken="}">
+                                        <filter token="buildNumber" value="0.1.${buildNumber}"/>
+                                        <filter token="com.ickstream.services.lms.sha"
+                                                value="${com.ickstream.services.lms.sha}"/>
+                                    </filterset>
+                                    <fileset dir="src/main/repositories">
+                                        <include name="*-${com.ickstream.os}.xml"/>
+                                    </fileset>
+                                </copy>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>1.5</version>
+                <executions>
+                    <execution>
+                        <id>attach-development-artifacts</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>attach-artifact</goal>
+                        </goals>
+                        <configuration>
+                            <artifacts>
+                                <artifact>
+                                    <file>${project.build.directory}/repository-${com.ickstream.os}.xml</file>
+                                    <type>xml</type>
+                                    <classifier>${com.ickstream.os}</classifier>
+                                </artifact>
+                            </artifacts>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+
+        </plugins>
     </build>
     <profiles>
-	<profile>
-		<id>linux</id>
-                <activation>
-                    <os>
-                        <family>unix</family>
-                        <name>!mac os x</name>
-                    </os>
-                </activation>
-                <properties>
-                	<com.ickstream.os>linux</com.ickstream.os>
-                </properties>
-		<dependencies>
-        <dependency>
-            <groupId>com.ickstream.common.ickservice</groupId>
-            <artifactId>ickHttpServiceWrapper</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>com.ickstream.common.ickdiscovery.java</groupId>
-            <artifactId>libickDiscoveryJNI</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <type>so</type>
-        </dependency>
-	</dependencies>
-	</profile>
         <profile>
-                <id>macosx</id>
+            <id>linux</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                    <name>!mac os x</name>
+                </os>
+            </activation>
+            <properties>
+                <com.ickstream.os>linux</com.ickstream.os>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.ickstream.common.ickservice</groupId>
+                    <artifactId>ickHttpServiceWrapper</artifactId>
+                    <version>1.0-SNAPSHOT</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.ickstream.common.ickdiscovery.java</groupId>
+                    <artifactId>libickDiscoveryJNI</artifactId>
+                    <version>1.0-SNAPSHOT</version>
+                    <type>so</type>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>macosx</id>
             <activation>
                 <os>
                     <family>mac</family>
                 </os>
             </activation>
-                <properties>
-                	<com.ickstream.os>macosx</com.ickstream.os>
-                </properties>
-                <dependencies>
-        <dependency>
-            <groupId>com.ickstream.common.ickservice</groupId>
-            <artifactId>ickHttpServiceWrapper</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>com.ickstream.common.ickdiscovery.java</groupId>
-            <artifactId>libickDiscoveryJNI</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <type>jnilib</type>
-        </dependency>
-                </dependencies>
+            <properties>
+                <com.ickstream.os>macosx</com.ickstream.os>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.ickstream.common.ickservice</groupId>
+                    <artifactId>ickHttpServiceWrapper</artifactId>
+                    <version>1.0-SNAPSHOT</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.ickstream.common.ickdiscovery.java</groupId>
+                    <artifactId>libickDiscoveryJNI</artifactId>
+                    <version>1.0-SNAPSHOT</version>
+                    <type>jnilib</type>
+                </dependency>
+            </dependencies>
         </profile>
     </profiles>
 </project>
