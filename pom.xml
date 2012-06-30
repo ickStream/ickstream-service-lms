@@ -22,6 +22,18 @@
             </plugins>
         </pluginManagement>
         <plugins>
+	<plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <version>1.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>create-timestamp</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -60,7 +72,7 @@
                                           property="com.ickstream.services.lms.sha"/>
                                 <copy todir="target" filtering="true">
                                     <filterset begintoken="${" endtoken="}">
-                                        <filter token="buildNumber" value="0.1.${buildNumber}"/>
+                                        <filter token="buildNumber" value="0.1.${timestamp}"/>
                                         <filter token="com.ickstream.services.lms.sha"
                                                 value="${com.ickstream.services.lms.sha}"/>
                                     </filterset>
