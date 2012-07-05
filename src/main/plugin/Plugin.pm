@@ -16,6 +16,7 @@ use HTTP::Status qw(RC_OK);
 use JSON::XS::VersionOneAndTwo;
 use Scalar::Util qw(blessed);
 use Slim::Web::HTTP;
+use HTTP::Status qw(RC_MOVED_TEMPORARILY RC_NOT_FOUND);
 use Slim::Utils::Compress;
 use POSIX qw(floor);
 
@@ -38,6 +39,7 @@ our %contexts = ();
 
 # this array provides a function for each supported JSON method
 my %methods = (
+		'getServiceInformation'	=> \&getServiceInformation,
         'findTopLevelItems'        => \&findTopLevelItems,
         'findItems'        => \&findItems,
 );
@@ -88,6 +90,7 @@ sub webPages {
 	my $class = shift;
 
 	Slim::Web::Pages->addRawFunction('IckStreamPlugin/jsonrpc', \&handleJSONRPC);
+	Slim::Web::Pages->addRawFunction('IckStreamPlugin/music/.*', \&handleStream);
 	Slim::Web::HTTP::addCloseHandler(\&handleClose);
 
 	return unless main::WEBUI;
@@ -108,6 +111,43 @@ sub handleClose {
                 # delete the context
                 delete $contexts{$httpClient};
         }
+}
+
+sub handleStream {
+	my ($httpClient, $httpResponse) = @_;
+	my $uri = $httpResponse->request()->uri;
+	if($uri =~ /\/plugins\/IckStreamPlugin\/music\/([^\/]+)\/download/) {
+		my $trackId = $1;
+		my $sql = "SELECT id from TRACKS where urlmd5=?";
+		my $dbh = Slim::Schema->dbh;
+		my $sth = $dbh->prepare_cached($sql);
+		$log->debug("Executing $sql");
+		my @params = ($trackId);
+		$sth->execute(@params);
+		my $id;
+		$sth->bind_col(1,\$id);
+		if ($sth->fetch) {
+			$log->debug("Redirect to /music/$id/download");
+			my $serverAddress = Slim::Utils::Network::serverAddr();
+			($serverAddress) = split /:/, $serverAddress;
+			$serverAddress .= ":" . $serverPrefs->get('httpport');
+		    $httpResponse->code(RC_MOVED_TEMPORARILY);
+		    $httpResponse->header('Location' => "http://".$serverAddress."/music/$id/download");
+			$httpClient->send_response($httpResponse);
+		    Slim::Web::HTTP::closeHTTPSocket($httpClient);
+		    return;
+		}
+	}
+	$httpResponse->code(RC_NOT_FOUND);
+    $httpResponse->content_type('text/html');
+    $httpResponse->header('Connection' => 'close');
+    my $params = {
+    	'path' => $uri
+    };
+    $httpResponse->content_ref(Slim::Web::HTTP::filltemplatefile('html/errors/404.html', $params));
+	$httpClient->send_response($httpResponse);
+    Slim::Web::HTTP::closeHTTPSocket($httpClient);
+    return;
 }
 
 sub handleJSONRPC {
@@ -201,7 +241,7 @@ sub handleJSONRPC {
         # parse the parameters
         my $params = $procedure->{'params'};
 
-        if (ref($params) ne 'HASH') {
+        if (defined($params) && ref($params) ne 'HASH') {
                 
                 # error, params is an array or an object
                 $log->warn("Procedure $method has params not HASH => closing connection");
@@ -279,8 +319,12 @@ sub generateJSONResponse {
         Slim::Web::JSONRPC::writeResponse($context, $response);
 }
 
+sub getServiceId {
+	return uc($serverPrefs->get('server_uuid'));
+}
+
 sub getServerId {
-	return uc($serverPrefs->get('server_uuid')).":lms";
+	return getServiceId().":lms";
 }
 
 sub getTopLevelItems {
@@ -342,6 +386,31 @@ sub findItems {
     if ($@) {
 		$log->error("An error occurred $@");
     }
+}
+
+sub getServiceInformation {
+	my $context = shift;
+	if ( $log->is_debug ) {
+	        $log->debug( "getServiceInformation()" );
+	}
+	my $serverName = $serverPrefs->get('libraryname');
+	if(!defined($serverName) || $serverName eq '') {
+		$serverName = Slim::Utils::Network::hostName();
+	}
+
+	my $serverAddress = Slim::Utils::Network::serverAddr();
+	($serverAddress) = split /:/, $serverAddress;
+	
+	$serverAddress .= ":" . $serverPrefs->get('httpport');
+
+	my $result = {
+		'id' => getServiceId(),
+		'name' => $serverName,
+		'type' => 'content',
+		'serviceUrl' => 'http://'.$serverAddress
+	};
+	# the request was successful and is not async, send results back to caller!
+	requestWrite($result, $context->{'httpClient'}, $context);
 }
 
 sub findTopLevelItems {
@@ -477,11 +546,6 @@ sub findAlbums {
 	$sth->bind_col(6,\$artistId);
 	$sth->bind_col(7,\$artistName);
 	
-	my $serverAddress = Slim::Utils::Network::serverAddr();
-	($serverAddress) = split /:/, $serverAddress;
-	
-	$serverAddress .= ":" . $serverPrefs->get('httpport');
-
 	while ($sth->fetch) {
 		utf8::decode($albumTitle);
 		utf8::decode($artistName);
@@ -503,7 +567,7 @@ sub findAlbums {
 		};
 		
 		if(defined($albumCover)) {
-			$item->{'image'} = "http://$serverAddress/music/$albumCover/cover";
+			$item->{'image'} = "service://".getServiceId()."/music/$albumCover/cover";
 		}
 
 		if(defined($albumYear) && $albumYear>0) {
@@ -583,7 +647,7 @@ sub findTracks {
 	
 	my @whereDirectives = ();
 	my @whereDirectiveValues = ();
-	my $sql = 'SELECT tracks.id,tracks.url,tracks.tracknum, tracks.title,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.tracknum, tracks.title,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
 	my $order_by = "tracks.disc,tracks.tracknum,tracks.titlesort";
 	if(exists($reqParams->{'artistId'})) {
 		my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
@@ -615,6 +679,7 @@ sub findTracks {
 	
 	my $trackId;
 	my $trackUrl;
+	my $trackMd5Url;
 	my $trackNumber;
 	my $trackTitle;
 	my $trackCover;
@@ -628,15 +693,16 @@ sub findTracks {
 	
 	$sth->bind_col(1,\$trackId);
 	$sth->bind_col(2,\$trackUrl);
-	$sth->bind_col(3,\$trackNumber);
-	$sth->bind_col(4,\$trackTitle);
-	$sth->bind_col(5,\$trackCover);
-	$sth->bind_col(6,\$trackYear);
-	$sth->bind_col(7,\$trackDisc);
-	$sth->bind_col(8,\$trackDuration);
-	$sth->bind_col(9,\$trackFormat);
-	$sth->bind_col(10,\$albumId);
-	$sth->bind_col(11,\$albumTitle);
+	$sth->bind_col(3,\$trackMd5Url);
+	$sth->bind_col(4,\$trackNumber);
+	$sth->bind_col(5,\$trackTitle);
+	$sth->bind_col(6,\$trackCover);
+	$sth->bind_col(7,\$trackYear);
+	$sth->bind_col(8,\$trackDisc);
+	$sth->bind_col(9,\$trackDuration);
+	$sth->bind_col(10,\$trackFormat);
+	$sth->bind_col(11,\$albumId);
+	$sth->bind_col(12,\$albumTitle);
 
 	my $serverAddress = Slim::Utils::Network::serverAddr();
 	($serverAddress) = split /:/, $serverAddress;
@@ -649,7 +715,7 @@ sub findTracks {
 				
 		my @streamingRefs = ({
 			'format' => Slim::Music::Info::mimeType($trackUrl),
-			'url' => "http://$serverAddress/music/$trackId/download"
+			'url' => "service://".getServiceId()."/plugins/IckStreamPlugin/music/$trackMd5Url/download"
 		});
 		my $item = {
 			'id' => "$serverPrefix:track:$trackId",
@@ -667,7 +733,7 @@ sub findTracks {
 		};
 		
 		if(defined($trackCover)) {
-			$item->{'image'} = "http://$serverAddress/music/$trackCover/cover";
+			$item->{'image'} = "service://".getServiceId()."/music/$trackCover/cover";
 		}
 		
 		if(defined($trackNumber) && $trackNumber>0) {
