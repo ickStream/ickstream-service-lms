@@ -501,7 +501,7 @@ sub findAlbums {
 	
 	my @whereDirectives = ();
 	my @whereDirectiveValues = ();
-	my $sql = 'SELECT albums.id,albums.title,albums.artwork,albums.disc,albums.year,contributors.id,contributors.name FROM albums ';
+	my $sql = 'SELECT albums.id,albums.title,albums.titlesort,albums.artwork,albums.disc,albums.year,contributors.id,contributors.name FROM albums ';
 	my $order_by = undef;
 	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
 	if(exists($reqParams->{'artistId'})) {
@@ -532,6 +532,7 @@ sub findAlbums {
 	
 	my $albumId;
 	my $albumTitle;
+	my $albumSortTitle;
 	my $albumCover;
 	my $albumDisc;
 	my $albumYear;
@@ -540,14 +541,16 @@ sub findAlbums {
 	
 	$sth->bind_col(1,\$albumId);
 	$sth->bind_col(2,\$albumTitle);
-	$sth->bind_col(3,\$albumCover);
-	$sth->bind_col(4,\$albumDisc);
-	$sth->bind_col(5,\$albumYear);
-	$sth->bind_col(6,\$artistId);
-	$sth->bind_col(7,\$artistName);
+	$sth->bind_col(3,\$albumSortTitle);
+	$sth->bind_col(4,\$albumCover);
+	$sth->bind_col(5,\$albumDisc);
+	$sth->bind_col(6,\$albumYear);
+	$sth->bind_col(7,\$artistId);
+	$sth->bind_col(8,\$artistName);
 	
 	while ($sth->fetch) {
 		utf8::decode($albumTitle);
+		utf8::decode($albumSortTitle);
 		utf8::decode($artistName);
 		
 		my @artists = ({
@@ -558,6 +561,7 @@ sub findAlbums {
 		my $item = {
 			'id' => "$serverPrefix:album:$albumId",
 			'text' => $albumTitle,
+			'sortText' => $albumSortTitle,
 			'type' => "album",
 			'itemAttributes' => {
 				'id' => "album:$albumId",
@@ -588,7 +592,7 @@ sub findArtists {
 
 	my @items = ();
 	
-	my $sql = 'SELECT contributors.id,contributors.name FROM contributors JOIN albums ON albums.contributor=contributors.id ';
+	my $sql = 'SELECT contributors.id,contributors.name,contributors.namesort FROM contributors JOIN albums ON albums.contributor=contributors.id ';
 	my $order_by = undef;
 	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
 	$order_by = "contributors.namesort $collate";
@@ -604,16 +608,20 @@ sub findArtists {
 	
 	my $artistId;
 	my $artistName;
+	my $artistSortName;
 	
 	$sth->bind_col(1,\$artistId);
 	$sth->bind_col(2,\$artistName);
+	$sth->bind_col(3,\$artistSortName);
 	
 	while ($sth->fetch) {
 		utf8::decode($artistName);
+		utf8::decode($artistSortName);
 		
 		my $item = {
 			'id' => "$serverPrefix:artist:$artistId",
 			'text' => $artistName,
+			'sortText' => $artistSortName,
 			'type' => "artist",
 			'itemAttributes' => {
 				'id' => "artist:$artistId",
@@ -647,7 +655,7 @@ sub findTracks {
 	
 	my @whereDirectives = ();
 	my @whereDirectiveValues = ();
-	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.tracknum, tracks.title,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
 	my $order_by = "tracks.disc,tracks.tracknum,tracks.titlesort";
 	if(exists($reqParams->{'artistId'})) {
 		my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
@@ -682,6 +690,7 @@ sub findTracks {
 	my $trackMd5Url;
 	my $trackNumber;
 	my $trackTitle;
+	my $trackSortTitle;
 	my $trackCover;
 	my $trackYear;
 	my $trackDisc;
@@ -696,13 +705,14 @@ sub findTracks {
 	$sth->bind_col(3,\$trackMd5Url);
 	$sth->bind_col(4,\$trackNumber);
 	$sth->bind_col(5,\$trackTitle);
-	$sth->bind_col(6,\$trackCover);
-	$sth->bind_col(7,\$trackYear);
-	$sth->bind_col(8,\$trackDisc);
-	$sth->bind_col(9,\$trackDuration);
-	$sth->bind_col(10,\$trackFormat);
-	$sth->bind_col(11,\$albumId);
-	$sth->bind_col(12,\$albumTitle);
+	$sth->bind_col(6,\$trackSortTitle);
+	$sth->bind_col(7,\$trackCover);
+	$sth->bind_col(8,\$trackYear);
+	$sth->bind_col(9,\$trackDisc);
+	$sth->bind_col(10,\$trackDuration);
+	$sth->bind_col(11,\$trackFormat);
+	$sth->bind_col(12,\$albumId);
+	$sth->bind_col(13,\$albumTitle);
 
 	my $serverAddress = Slim::Utils::Network::serverAddr();
 	($serverAddress) = split /:/, $serverAddress;
@@ -710,9 +720,14 @@ sub findTracks {
 	$serverAddress .= ":" . $serverPrefs->get('httpport');
 	
 	while ($sth->fetch) {
+		utf8::decode($trackSortTitle);
 		utf8::decode($trackTitle);
 		utf8::decode($albumTitle);
-				
+			
+		my $sortText = (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackSortTitle;
+		if(exists($reqParams->{'albumId'}) || exists($reqParams->{'artistId'})) {
+			$sortText = $trackSortTitle;
+		}
 		my @streamingRefs = ({
 			'format' => Slim::Music::Info::mimeType($trackUrl),
 			'url' => "service://".getServiceId()."/plugins/IckStreamPlugin/music/$trackMd5Url/download"
@@ -720,6 +735,7 @@ sub findTracks {
 		my $item = {
 			'id' => "$serverPrefix:track:$trackId",
 			'text' => (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle,
+			'sortText' => $sortText,
 			'type' => "track",
 			'streamingRefs' => \@streamingRefs,
 			'itemAttributes' => {
