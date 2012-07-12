@@ -223,9 +223,8 @@ sub handleJSONRPC {
         
         if (!$funcPtr) {
 
-                # return error, not a known procedure
-                $log->warn("Unknown method $method => closing connection");
-                
+				# Ignoring messages not for our usage
+				
                 Slim::Web::HTTP::closeHTTPSocket($httpClient);
                 return;
                 
