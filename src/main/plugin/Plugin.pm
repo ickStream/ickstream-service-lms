@@ -732,13 +732,13 @@ sub findTracks {
 			'url' => "service://".getServiceId()."/plugins/IckStreamPlugin/music/$trackMd5Url/download"
 		});
 		my $item = {
-			'id' => "$serverPrefix:track:$trackId",
+			'id' => "$serverPrefix:track:$trackMd5Url",
 			'text' => (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle,
 			'sortText' => $sortText,
 			'type' => "track",
 			'streamingRefs' => \@streamingRefs,
 			'itemAttributes' => {
-				'id' => "track:$trackId",
+				'id' => "track:$trackMd5Url",
 				'name' => $trackTitle,
 				'album' => {
 					'id' => "album:$albumId",
