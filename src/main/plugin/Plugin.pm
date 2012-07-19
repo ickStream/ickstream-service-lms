@@ -40,6 +40,7 @@ our %contexts = ();
 # this array provides a function for each supported JSON method
 my %methods = (
 		'getServiceInformation'	=> \&getServiceInformation,
+		'getProtocolDescription' => \&getProtocolDescription,
         'findTopLevelItems'        => \&findTopLevelItems,
         'findItems'        => \&findItems,
 );
@@ -212,7 +213,7 @@ sub handleJSONRPC {
 
         if (!$method) {
 
-                $log->warn("Request has no method => closing connection");
+                $log->debug("Request has no method => closing connection");
 
                 Slim::Web::HTTP::closeHTTPSocket($httpClient);
                 return;
@@ -324,6 +325,98 @@ sub getServiceId {
 
 sub getServerId {
 	return getServiceId().":lms";
+}
+
+sub getProtocolDescription {
+	my $context = shift;
+
+	my @contexts = ();
+
+	my $allArtistsRequest = {
+					'type' => 'artist',
+					'parameters' => [
+						['contextId','type']
+					],
+				};
+	my $allAlbumsRequest = {
+					'type' => 'album',
+					'parameters' => [
+						['contextId','type']
+					],
+				};
+
+	my $allAlbumsForArtistRequest = {
+					'type' => 'album',
+					'parameters' => [
+						['contextId','type','artistId']
+					]
+				};
+
+	my $allTracksForAlbumRequest = {
+					'type' => 'track',
+					'parameters' => [
+						['contextId','type','albumId']
+					]
+				};
+	my $allTracksForArtistRequest = {
+					'type' => 'track',
+					'parameters' => [
+						['contextId','type','artistId']
+					]
+				};
+	my $allTracksForArtistAndAlbumRequest = {
+					'type' => 'track',
+					'parameters' => [
+						['contextId','type','artistId','albumId']
+					]
+				};
+	
+	my $myMusicContext = {
+			'contextId' => 'myMusic',
+			'name' => 'My Music',
+			'supportedRequests' => [
+				$allArtistsRequest,
+				$allAlbumsRequest,
+				$allAlbumsForArtistRequest,
+				$allTracksForArtistRequest,
+				$allTracksForAlbumRequest,
+				$allTracksForArtistAndAlbumRequest
+			]
+		};
+	
+
+	push @contexts,$myMusicContext;
+
+    # get the JSON-RPC params
+    my $reqParams = $context->{'procedure'}->{'params'};
+	if ( $log->is_debug ) {
+	        $log->debug( "getProtocolDescription(" . Data::Dump::dump($reqParams) . ")" );
+	}
+
+	my $count = $reqParams->{'count'} if exists($reqParams->{'count'});
+	my $offset = $reqParams->{'offset'} || 0;
+	if(!defined($count)) {
+		$count = scalar(@contexts);
+	}
+
+	my @resultItems = ();
+	my $i = 0;
+	for my $context (@contexts) {
+		if($i>=$offset && scalar(@resultItems)<$count) {
+			push @resultItems,$context;
+		}
+		$i++;
+	}
+
+	my $result = {
+		'offset' => $offset,
+		'count' => scalar(@resultItems),
+		'countAll' => scalar(@contexts),
+		'items_loop' => \@resultItems
+	};
+	# the request was successful and is not async, send results back to caller!
+	requestWrite($result, $context->{'httpClient'}, $context);
+
 }
 
 sub getTopLevelItems {
@@ -439,6 +532,7 @@ sub findTopLevelItems {
 	my $result = {
 		'offset' => $offset,
 		'count' => scalar(@items),
+		'countAll' => scalar(@$topLevelItems),
 		'items_loop' => \@items
 	};
 
