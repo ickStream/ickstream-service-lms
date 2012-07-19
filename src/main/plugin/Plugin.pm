@@ -469,6 +469,7 @@ sub findItems {
 		my $result = {
 			'offset' => $offset,
 			'count' => scalar(@$items),
+			'expirationTimestamp' => time()+24*3600,
 			'items_loop' => $items
 		};
 	
