@@ -332,41 +332,25 @@ sub getProtocolDescription {
 
 	my @contexts = ();
 
-	my $allArtistsRequest = {
+	my $artistRequests = {
 					'type' => 'artist',
 					'parameters' => [
 						['contextId','type']
 					],
 				};
-	my $allAlbumsRequest = {
+	my $albumRequests = {
 					'type' => 'album',
 					'parameters' => [
-						['contextId','type']
+						['contextId','type'],
+						['contextId','type','artistId']
 					],
 				};
 
-	my $allAlbumsForArtistRequest = {
-					'type' => 'album',
-					'parameters' => [
-						['contextId','type','artistId']
-					]
-				};
-
-	my $allTracksForAlbumRequest = {
+	my $trackRequests = {
 					'type' => 'track',
 					'parameters' => [
-						['contextId','type','albumId']
-					]
-				};
-	my $allTracksForArtistRequest = {
-					'type' => 'track',
-					'parameters' => [
-						['contextId','type','artistId']
-					]
-				};
-	my $allTracksForArtistAndAlbumRequest = {
-					'type' => 'track',
-					'parameters' => [
+						['contextId','type','albumId'],
+						['contextId','type','artistId'],
 						['contextId','type','artistId','albumId']
 					]
 				};
@@ -375,12 +359,9 @@ sub getProtocolDescription {
 			'contextId' => 'myMusic',
 			'name' => 'My Music',
 			'supportedRequests' => [
-				$allArtistsRequest,
-				$allAlbumsRequest,
-				$allAlbumsForArtistRequest,
-				$allTracksForArtistRequest,
-				$allTracksForAlbumRequest,
-				$allTracksForArtistAndAlbumRequest
+				$artistRequests,
+				$albumRequests,
+				$trackRequests
 			]
 		};
 	
