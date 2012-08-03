@@ -645,6 +645,12 @@ sub findAlbums {
 			}
 		};
 		
+		if($order_by eq "albums.titlesort $collate, albums.disc") {
+			$item->{'sortText'} = $albumSortTitle." ".(defined($albumDisc)?$albumDisc:"");
+		}elsif($order_by eq "albums.year desc, albums.titlesort $collate, albums.disc") {
+			$item->{'sortText'} = $albumYear." ".$albumSortTitle." ".(defined($albumDisc)?$albumDisc:"");
+		}
+		
 		if(defined($albumCover)) {
 			$item->{'image'} = "service://".getServiceId()."/music/$albumCover/cover";
 		}
@@ -799,9 +805,11 @@ sub findTracks {
 		utf8::decode($trackTitle);
 		utf8::decode($albumTitle);
 			
-		my $sortText = (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackSortTitle;
-		if(exists($reqParams->{'albumId'}) || exists($reqParams->{'artistId'})) {
+		my $sortText = (defined($trackDisc)?($trackDisc<10?"0".$trackDisc."-":$trackDisc."-"):"").(defined($trackNumber)?($trackNumber<10?"0".$trackNumber:$trackNumber):"").". ".$trackSortTitle;
+		my $displayText = (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle;
+		if(!exists($reqParams->{'albumId'})) {
 			$sortText = $trackSortTitle;
+			$displayText = $trackTitle;
 		}
 		my @streamingRefs = ({
 			'format' => Slim::Music::Info::mimeType($trackUrl),
@@ -809,7 +817,7 @@ sub findTracks {
 		});
 		my $item = {
 			'id' => "$serverPrefix:track:$trackMd5Url",
-			'text' => (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle,
+			'text' => $displayText,
 			'sortText' => $sortText,
 			'type' => "track",
 			'streamingRefs' => \@streamingRefs,
