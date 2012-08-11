@@ -393,7 +393,7 @@ sub getProtocolDescription {
 		'offset' => $offset,
 		'count' => scalar(@resultItems),
 		'countAll' => scalar(@contexts),
-		'items_loop' => \@resultItems
+		'items' => \@resultItems
 	};
 	# the request was successful and is not async, send results back to caller!
 	requestWrite($result, $context->{'httpClient'}, $context);
@@ -451,7 +451,7 @@ sub findItems {
 			'offset' => $offset,
 			'count' => scalar(@$items),
 			'expirationTimestamp' => time()+24*3600,
-			'items_loop' => $items
+			'items' => $items
 		};
 	
 		# the request was successful and is not async, send results back to caller!
@@ -515,7 +515,7 @@ sub findTopLevelItems {
 		'offset' => $offset,
 		'count' => scalar(@items),
 		'countAll' => scalar(@$topLevelItems),
-		'items_loop' => \@items
+		'items' => \@items
 	};
 
 	# the request was successful and is not async, send results back to caller!
