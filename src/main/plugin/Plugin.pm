@@ -40,6 +40,7 @@ our %contexts = ();
 # this array provides a function for each supported JSON method
 my %methods = (
 		'getServiceInformation'	=> \&getServiceInformation,
+		'getManagementProtocolDescription' => \&getManagementProtocolDescription,
 		'getProtocolDescription' => \&getProtocolDescription,
         'findTopLevelItems'        => \&findTopLevelItems,
         'findItems'        => \&findItems,
@@ -367,6 +368,43 @@ sub getProtocolDescription {
 	
 
 	push @contexts,$myMusicContext;
+
+    # get the JSON-RPC params
+    my $reqParams = $context->{'procedure'}->{'params'};
+	if ( $log->is_debug ) {
+	        $log->debug( "getProtocolDescription(" . Data::Dump::dump($reqParams) . ")" );
+	}
+
+	my $count = $reqParams->{'count'} if exists($reqParams->{'count'});
+	my $offset = $reqParams->{'offset'} || 0;
+	if(!defined($count)) {
+		$count = scalar(@contexts);
+	}
+
+	my @resultItems = ();
+	my $i = 0;
+	for my $context (@contexts) {
+		if($i>=$offset && scalar(@resultItems)<$count) {
+			push @resultItems,$context;
+		}
+		$i++;
+	}
+
+	my $result = {
+		'offset' => $offset,
+		'count' => scalar(@resultItems),
+		'countAll' => scalar(@contexts),
+		'items' => \@resultItems
+	};
+	# the request was successful and is not async, send results back to caller!
+	requestWrite($result, $context->{'httpClient'}, $context);
+
+}
+
+sub getManagementProtocolDescription {
+	my $context = shift;
+
+	my @contexts = ();
 
     # get the JSON-RPC params
     my $reqParams = $context->{'procedure'}->{'params'};
