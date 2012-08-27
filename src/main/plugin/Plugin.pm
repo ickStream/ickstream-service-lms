@@ -366,8 +366,38 @@ sub getProtocolDescription {
 			]
 		};
 	
-
 	push @contexts,$myMusicContext;
+
+	my $artistSearchRequests = {
+		'type' => 'artist',
+		'parameters' => [
+			['contextId','type','search']
+		]
+	};
+	my $albumSearchRequests = {
+		'type' => 'album',
+		'parameters' => [
+			['contextId','type','search']
+		]
+	};
+	my $trackSearchRequests = {
+		'type' => 'track',
+		'parameters' => [
+			['contextId','type','search']
+		]
+	};
+
+	my $allMusicContext = {
+			'contextId' => 'allMusic',
+			'name' => 'All Music',
+			'supportedRequests' => [
+				$artistSearchRequests,
+				$albumSearchRequests,
+				$trackSearchRequests
+			]
+		};
+	
+	push @contexts,$allMusicContext;
 
     # get the JSON-RPC params
     my $reqParams = $context->{'procedure'}->{'params'};
@@ -614,6 +644,8 @@ sub findAlbums {
 	
 	my @whereDirectives = ();
 	my @whereDirectiveValues = ();
+	my @whereSearchDirectives = ();
+	my @whereSearchDirectiveValues = ();
 	my $sql = 'SELECT albums.id,albums.title,albums.titlesort,albums.artwork,albums.disc,albums.year,contributors.id,contributors.name FROM albums ';
 	my $order_by = undef;
 	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
@@ -628,10 +660,32 @@ sub findAlbums {
 		$sql .= 'JOIN contributors on contributors.id = albums.contributor ';
 		$order_by = "albums.titlesort $collate, albums.disc";
 	}
-	if(scalar(@whereDirectives)>0) {
+	if(exists($reqParams->{'search'})) {
+		my $searchStrings = Slim::Utils::Text::searchStringSplit($reqParams->{'search'});
+		if( ref $searchStrings->[0] eq 'ARRAY') {
+			for my $search (@{$searchStrings->[0]}) {
+				push @whereSearchDirectives,'albums.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
+		}else {
+				push @whereSearchDirectives,'albums.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$searchStrings;
+		}
+	}
+	
+	if(scalar(@whereDirectives)>0 || scalar(@whereSearchDirectives)>0) {
 		$sql .= 'WHERE ';
-		my $whereDirective = join(' AND ', @whereDirectives);
+		my $whereDirective;
+		if(scalar(@whereDirectives)>0) {
+			$whereDirective = join(' AND ', @whereDirectives);
+			if(scalar(@whereSearchDirectives)>0) {
+				$whereDirective .= ' AND ('.join(' OR ',@whereSearchDirectives).')';
+			}
+		}elsif(scalar(@whereSearchDirectives)>0) {
+			$whereDirective .= join(' OR ',@whereSearchDirectives);
+		}
 		$whereDirective =~ s/\%/\%\%/g;
+		push @whereDirectiveValues,@whereSearchDirectiveValues;
 		$sql .= $whereDirective . ' ';
 	}
 	$sql .= "GROUP BY albums.id ORDER BY $order_by";
@@ -641,6 +695,7 @@ sub findAlbums {
 	my $dbh = Slim::Schema->dbh;
 	my $sth = $dbh->prepare_cached($sql);
 	$log->debug("Executing $sql");
+	$log->debug("Using values: ".join(',',@whereDirectiveValues));
 	$sth->execute(@whereDirectiveValues);
 	
 	my $albumId;
@@ -716,6 +771,39 @@ sub findArtists {
 	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
 	$order_by = "contributors.namesort $collate";
 
+	my @whereDirectives = ();
+	my @whereDirectiveValues = ();
+	my @whereSearchDirectives = ();
+	my @whereSearchDirectiveValues = ();
+	if(exists($reqParams->{'search'})) {
+		my $searchStrings = Slim::Utils::Text::searchStringSplit($reqParams->{'search'});
+		if( ref $searchStrings->[0] eq 'ARRAY') {
+			for my $search (@{$searchStrings->[0]}) {
+				push @whereSearchDirectives,'contributors.namesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
+		}else {
+				push @whereSearchDirectives,'contributors.namesearch LIKE ?';
+				push @whereSearchDirectiveValues,$searchStrings;
+		}
+	}
+
+	if(scalar(@whereDirectives)>0 || scalar(@whereSearchDirectives)>0) {
+		$sql .= 'WHERE ';
+		my $whereDirective;
+		if(scalar(@whereDirectives)>0) {
+			$whereDirective = join(' AND ', @whereDirectives);
+			if(scalar(@whereSearchDirectives)>0) {
+				$whereDirective .= ' AND ('.join(' OR ',@whereSearchDirectives).')';
+			}
+		}elsif(scalar(@whereSearchDirectives)>0) {
+			$whereDirective .= join(' OR ',@whereSearchDirectives);
+		}
+		$whereDirective =~ s/\%/\%\%/g;
+		push @whereDirectiveValues,@whereSearchDirectiveValues;
+		$sql .= $whereDirective . ' ';
+	}
+
 	$sql .= "GROUP BY contributors.id ORDER BY $order_by";
 	if(defined($count)) {
 		$sql .= " LIMIT $offset, $count";
@@ -723,7 +811,12 @@ sub findArtists {
 	my $dbh = Slim::Schema->dbh;
 	my $sth = $dbh->prepare_cached($sql);
 	$log->debug("Executing $sql");
-	$sth->execute();
+	if(scalar(@whereDirectiveValues)>0) {
+		$log->debug("Using values: ".join(',',@whereDirectiveValues));
+		$sth->execute(@whereDirectiveValues);
+	}else {
+		$sth->execute();
+	}
 	
 	my $artistId;
 	my $artistName;
@@ -774,6 +867,8 @@ sub findTracks {
 	
 	my @whereDirectives = ();
 	my @whereDirectiveValues = ();
+	my @whereSearchDirectives = ();
+	my @whereSearchDirectiveValues = ();
 	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
 	my $order_by = "tracks.disc,tracks.tracknum,tracks.titlesort";
 	if(exists($reqParams->{'artistId'})) {
@@ -788,11 +883,32 @@ sub findTracks {
 	}else {
 		$order_by = "tracks.titlesort";
 	}
+	if(exists($reqParams->{'search'})) {
+		my $searchStrings = Slim::Utils::Text::searchStringSplit($reqParams->{'search'});
+		if( ref $searchStrings->[0] eq 'ARRAY') {
+			for my $search (@{$searchStrings->[0]}) {
+				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
+		}else {
+				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$searchStrings;
+		}
+	}
 
-	if(scalar(@whereDirectives)>0) {
+	if(scalar(@whereDirectives)>0 || scalar(@whereSearchDirectives)>0) {
 		$sql .= 'WHERE ';
-		my $whereDirective = join(' AND ', @whereDirectives);
+		my $whereDirective;
+		if(scalar(@whereDirectives)>0) {
+			$whereDirective = join(' AND ', @whereDirectives);
+			if(scalar(@whereSearchDirectives)>0) {
+				$whereDirective .= ' AND ('.join(' OR ',@whereSearchDirectives).')';
+			}
+		}elsif(scalar(@whereSearchDirectives)>0) {
+			$whereDirective .= join(' OR ',@whereSearchDirectives);
+		}
 		$whereDirective =~ s/\%/\%\%/g;
+		push @whereDirectiveValues,@whereSearchDirectiveValues;
 		$sql .= $whereDirective . ' ';
 	}
 	$sql .= "GROUP BY tracks.id ORDER BY $order_by";
@@ -802,6 +918,7 @@ sub findTracks {
 	my $dbh = Slim::Schema->dbh;
 	my $sth = $dbh->prepare_cached($sql);
 	$log->debug("Executing $sql");
+	$log->debug("Using values: ".join(',',@whereDirectiveValues));
 	$sth->execute(@whereDirectiveValues);
 	
 	my $trackId;
