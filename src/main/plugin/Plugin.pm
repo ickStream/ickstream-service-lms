@@ -377,13 +377,16 @@ sub getProtocolDescription {
 	my $albumSearchRequests = {
 		'type' => 'album',
 		'parameters' => [
-			['contextId','type','search']
+			['contextId','type','search'],
+			['contextId','type','artistId']
 		]
 	};
 	my $trackSearchRequests = {
 		'type' => 'track',
 		'parameters' => [
-			['contextId','type','search']
+			['contextId','type','search'],
+			['contextId','type','artistId'],
+			['contextId','type','artistId','albumId']
 		]
 	};
 
