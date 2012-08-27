@@ -385,6 +385,7 @@ sub getProtocolDescription {
 		'type' => 'track',
 		'parameters' => [
 			['contextId','type','search'],
+			['contextId','type','albumId'],
 			['contextId','type','artistId'],
 			['contextId','type','artistId','albumId']
 		]
