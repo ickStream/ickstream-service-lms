@@ -736,7 +736,7 @@ sub findAlbums {
 			'sortText' => $albumSortTitle,
 			'type' => "album",
 			'itemAttributes' => {
-				'id' => "album:$albumId",
+				'id' => "$serverPrefix:album:$albumId",
 				'name' => $albumTitle,
 				'mainartists' => \@artists
 			}
@@ -840,7 +840,7 @@ sub findArtists {
 			'sortText' => $artistSortName,
 			'type' => "artist",
 			'itemAttributes' => {
-				'id' => "artist:$artistId",
+				'id' => "$serverPrefix:artist:$artistId",
 				'name' => $artistName
 			}
 		};
@@ -981,10 +981,10 @@ sub findTracks {
 			'type' => "track",
 			'streamingRefs' => \@streamingRefs,
 			'itemAttributes' => {
-				'id' => "track:$trackMd5Url",
+				'id' => "$serverPrefix:track:$trackMd5Url",
 				'name' => $trackTitle,
 				'album' => {
-					'id' => "album:$albumId",
+					'id' => "$serverPrefix:album:$albumId",
 					'name' => $albumTitle,
 				}
 			}
