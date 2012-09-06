@@ -738,7 +738,7 @@ sub findAlbums {
 			'itemAttributes' => {
 				'id' => "$serverPrefix:album:$albumId",
 				'name' => $albumTitle,
-				'mainartists' => \@artists
+				'mainArtists' => \@artists
 			}
 		};
 		
