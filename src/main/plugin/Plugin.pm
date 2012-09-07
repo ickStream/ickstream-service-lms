@@ -210,15 +210,29 @@ sub handleJSONRPC {
                 $log->debug( "JSON parsed procedure: " . Data::Dump::dump($procedure) );
         }
 
+        # create a hash to store our context
+        my $context = {};
+        $context->{'httpClient'} = $httpClient;
+        $context->{'httpResponse'} = $httpResponse;
+        $context->{'procedure'} = $procedure;
+		
+		# ignore notifications (which don't have an id)
+		if (!defined($procedure->{'id'})) {
+				$log->debug("Ignoring notification: ".$procedure->{'method'});
+                Slim::Web::HTTP::closeHTTPSocket($httpClient);
+                return;
+		}
+
         # we must have a method
         my $method = $procedure->{'method'};
 
         if (!$method) {
-
-                $log->debug("Request has no method => closing connection");
-
-                Slim::Web::HTTP::closeHTTPSocket($httpClient);
-                return;
+				generateJSONResponse($context, undef, {
+					'code' => -32601,
+					'message' => 'Method not found',
+					'data' => $method
+				});
+				return;
         }
 
         # figure out the method wanted
@@ -226,10 +240,12 @@ sub handleJSONRPC {
         
         if (!$funcPtr) {
 
-				# Ignoring messages not for our usage
-				
-                Slim::Web::HTTP::closeHTTPSocket($httpClient);
-                return;
+				generateJSONResponse($context, undef, {
+					'code' => -32601,
+					'message' => 'Method not found',
+					'data' => $method
+				});
+				return;
                 
         } elsif (ref($funcPtr) ne 'CODE') {
                 # return internal server error
@@ -249,14 +265,7 @@ sub handleJSONRPC {
                 $log->warn("Procedure $method has params not HASH => closing connection");
                 Slim::Web::HTTP::closeHTTPSocket($httpClient);
                 return;
-        }
-
-        # create a hash to store our context
-        my $context = {};
-        $context->{'httpClient'} = $httpClient;
-        $context->{'httpResponse'} = $httpResponse;
-        $context->{'procedure'} = $procedure;
-        
+        }        
 
         # Detect the language the client wants content returned in
         if ( my $lang = $httpResponse->request->header('Accept-Language') ) {
@@ -305,18 +314,21 @@ sub handleJSONRPC {
 sub generateJSONResponse {
         my $context = shift;
         my $result = shift;
+        my $error = shift;
 
         if($log->is_debug) { $log->debug("generateJSONResponse()"); }
 
         # create an object for the response
         my $response = {};
+        $response->{'jsonrpc'} = defined($context->{'procedure'}->{'jsonrpc'}) ? $context->{'procedure'}->{'jsonrpc'} : "2.0";
         
         # add ID if we have it
         if (defined(my $id = $context->{'procedure'}->{'id'})) {
                 $response->{'id'} = $id;
         }
         # add result
-        $response->{'result'} = $result;
+        $response->{'result'} = $result if(defined($result));
+        $response->{'error'} = $error if (defined($error) && !defined($result));
 
         Slim::Web::JSONRPC::writeResponse($context, $response);
 }
