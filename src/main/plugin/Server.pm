@@ -40,6 +40,9 @@ sub start {
 		"-Dcom.ickstream.common.ickservice.stdout=$serverLog",
 		"-Dcom.ickstream.common.ickservice.stderr=$serverLog",
 	);
+	if($log->is_debug) {
+		push @opts,"-Dcom.ickstream.common.ickservice.debug=true";
+	}
 
 	my $endpoint;
 	if ($sprefs->get('authorize')) {
