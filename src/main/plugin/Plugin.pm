@@ -334,7 +334,7 @@ sub generateJSONResponse {
 }
 
 sub getServiceId {
-	return uc($serverPrefs->get('server_uuid'));
+	return uc($prefs->get('uuid'));
 }
 
 sub getServerId {

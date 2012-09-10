@@ -8,6 +8,7 @@ use warnings;
 use Tie::Cache::LRU;
 use File::Spec::Functions;
 use JSON::XS::VersionOneAndTwo;
+use UUID::Tiny;
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -55,7 +56,11 @@ sub start {
 	if(!defined($serverName) || $serverName eq '') {
 		$serverName = Slim::Utils::Network::hostName();
 	}
-	my $serverUUID = uc($sprefs->get('server_uuid'));
+	my $serverUUID = $prefs->get('uuid');
+	if(!defined($serverUUID)) {
+		$serverUUID = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
+		$prefs->set('uuid',$serverUUID);
+	}
 	
 	# use server to search for java and convert to short path if windows
 	my $javaPath = Slim::Utils::Misc::findbin("java");
