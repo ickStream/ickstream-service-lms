@@ -52,6 +52,13 @@ sub initPlugin {
 
 	my $self = $class->SUPER::initPlugin(@_);
 
+	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServer,$class);
+}
+
+
+sub startServer {
+	my $class = shift;
+	
 	Plugins::IckStreamPlugin::Server->start($class);
 }
 
@@ -219,6 +226,13 @@ sub handleJSONRPC {
 		# ignore notifications (which don't have an id)
 		if (!defined($procedure->{'id'})) {
 				$log->debug("Ignoring notification: ".$procedure->{'method'});
+                Slim::Web::HTTP::closeHTTPSocket($httpClient);
+                return;
+		}
+
+		# ignore errors, just log them
+		if (defined($procedure->{'error'})) {
+				$log->warn("JSON error on id=".$procedure->{'id'}.": ".$procedure->{'error'}->{'code'}.":".$procedure->{'error'}->{'message'}.(defined($procedure->{'error'}->{'data'})?"(".$procedure->{'error'}->{'data'}.")":""));
                 Slim::Web::HTTP::closeHTTPSocket($httpClient);
                 return;
 		}
