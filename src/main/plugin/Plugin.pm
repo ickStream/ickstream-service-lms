@@ -198,10 +198,25 @@ sub handleJSONRPC {
 
         $log->is_info && $log->info("POST data: [$input]");
 
-        # Parse the input
-        # Convert JSON to Perl
-        # FIXME: JSON 2.0 accepts multiple requests ? How do we parse that efficiently?
-        my $procedure = from_json($input);
+        # create a hash to store our context
+        my $context = {};
+        $context->{'httpClient'} = $httpClient;
+        $context->{'httpResponse'} = $httpResponse;
+
+		my $procedure = undef;
+		eval {
+	        # Parse the input
+	        # Convert JSON to Perl
+	        # FIXME: JSON 2.0 accepts multiple requests ? How do we parse that efficiently?
+	        $procedure = from_json($input);
+		};
+        if ($@) {
+				generateJSONResponse($context, undef, {
+					'code' => -32700,
+					'message' => 'Invalid JSON'
+				});
+				return;
+        }
 
         # Validate the procedure
         # We must get a JSON object, i.e. a hash
@@ -217,10 +232,6 @@ sub handleJSONRPC {
                 $log->debug( "JSON parsed procedure: " . Data::Dump::dump($procedure) );
         }
 
-        # create a hash to store our context
-        my $context = {};
-        $context->{'httpClient'} = $httpClient;
-        $context->{'httpResponse'} = $httpResponse;
         $context->{'procedure'} = $procedure;
 		
 		# ignore notifications (which don't have an id)
@@ -232,7 +243,7 @@ sub handleJSONRPC {
 
 		# ignore errors, just log them
 		if (defined($procedure->{'error'})) {
-				$log->warn("JSON error on id=".$procedure->{'id'}.": ".$procedure->{'error'}->{'code'}.":".$procedure->{'error'}->{'message'}.(defined($procedure->{'error'}->{'data'})?"(".$procedure->{'error'}->{'data'}.")":""));
+				$log->warn("JSON error on id=".$procedure->{'id'}.": ".$procedure->{'error'}->{'code'}.":".$procedure->{'error'}->{'code'}.(defined($procedure->{'error'}->{'data'})?"(".$procedure->{'error'}->{'data'}.")":""));
                 Slim::Web::HTTP::closeHTTPSocket($httpClient);
                 return;
 		}
@@ -313,13 +324,16 @@ sub handleJSONRPC {
         eval { &{$funcPtr}($context); };
 
         if ($@) {
-                if ( $log->is_error ) {
-                        my $funcName = Slim::Utils::PerlRunTime::realNameForCodeRef($funcPtr);
-                        $log->error("While trying to run function coderef [$funcName]: [$@]");
-                        main::DEBUGLOG && $log->error( "JSON parsed procedure: " . Data::Dump::dump($procedure) );
-                }
-                Slim::Web::HTTP::closeHTTPSocket($httpClient);
-                return;
+                my $funcName = Slim::Utils::PerlRunTime::realNameForCodeRef($funcPtr);
+                $log->error("While trying to run function coderef [$funcName]: [$@]");
+                main::DEBUGLOG && $log->error( "JSON parsed procedure: " . Data::Dump::dump($procedure) );
+
+				generateJSONResponse($context, undef, {
+					'code' => -32001,
+					'message' => 'Error when executing $funcName',
+					'data' => $@
+				});
+				return;
         }
 }
 
