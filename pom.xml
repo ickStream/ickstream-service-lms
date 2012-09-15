@@ -132,7 +132,7 @@
                 </dependency>
                 <dependency>
                     <groupId>com.ickstream.common.ickdiscovery.java</groupId>
-                    <artifactId>libickDiscoveryJNI</artifactId>
+                    <artifactId>libickDiscoveryJNI32</artifactId>
                     <version>1.0-SNAPSHOT</version>
                     <type>so</type>
                 </dependency>
@@ -162,7 +162,7 @@
                 </dependency>
                 <dependency>
                     <groupId>com.ickstream.common.ickdiscovery.java</groupId>
-                    <artifactId>libickDiscoveryJNI</artifactId>
+                    <artifactId>libickDiscoveryJNI32</artifactId>
                     <version>1.0-SNAPSHOT</version>
                     <type>jnilib</type>
                 </dependency>
