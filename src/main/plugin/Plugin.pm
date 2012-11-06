@@ -1029,7 +1029,7 @@ sub getInternalId {
 sub getTrack {
 	my $trackId = shift;
 	
-	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
 	my $order_by = "tracks.titlesort";
 
 	my @whereDirectives = ();
@@ -1073,7 +1073,7 @@ sub findTracks {
 	my @whereDirectiveValues = ();
 	my @whereSearchDirectives = ();
 	my @whereSearchDirectiveValues = ();
-	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
 	my $order_by = "tracks.disc,tracks.tracknum,tracks.titlesort";
 	if(exists($reqParams->{'artistId'})) {
 		my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
@@ -1138,6 +1138,9 @@ sub processTrackResult {
 	my $trackId;
 	my $trackUrl;
 	my $trackMd5Url;
+	my $trackSampleRate;
+	my $trackSampleSize;
+	my $trackChannels;
 	my $trackNumber;
 	my $trackTitle;
 	my $trackSortTitle;
@@ -1153,16 +1156,19 @@ sub processTrackResult {
 	$sth->bind_col(1,\$trackId);
 	$sth->bind_col(2,\$trackUrl);
 	$sth->bind_col(3,\$trackMd5Url);
-	$sth->bind_col(4,\$trackNumber);
-	$sth->bind_col(5,\$trackTitle);
-	$sth->bind_col(6,\$trackSortTitle);
-	$sth->bind_col(7,\$trackCover);
-	$sth->bind_col(8,\$trackYear);
-	$sth->bind_col(9,\$trackDisc);
-	$sth->bind_col(10,\$trackDuration);
-	$sth->bind_col(11,\$trackFormat);
-	$sth->bind_col(12,\$albumId);
-	$sth->bind_col(13,\$albumTitle);
+	$sth->bind_col(4,\$trackSampleRate);
+	$sth->bind_col(5,\$trackSampleSize);
+	$sth->bind_col(6,\$trackChannels);
+	$sth->bind_col(7,\$trackNumber);
+	$sth->bind_col(8,\$trackTitle);
+	$sth->bind_col(9,\$trackSortTitle);
+	$sth->bind_col(10,\$trackCover);
+	$sth->bind_col(11,\$trackYear);
+	$sth->bind_col(12,\$trackDisc);
+	$sth->bind_col(13,\$trackDuration);
+	$sth->bind_col(14,\$trackFormat);
+	$sth->bind_col(15,\$albumId);
+	$sth->bind_col(16,\$albumTitle);
 
 	my $serverAddress = Slim::Utils::Network::serverAddr();
 	($serverAddress) = split /:/, $serverAddress;
@@ -1184,6 +1190,15 @@ sub processTrackResult {
 			'format' => Slim::Music::Info::mimeType($trackUrl),
 			'url' => "service://".getServiceId()."/plugins/IckStreamPlugin/music/$trackMd5Url/download"
 		});
+		if(defined($trackSampleSize) && $trackSampleSize>0) {
+			$streamingRefs[0]->{'sampleSize'} = $trackSampleSize;
+		}
+		if(defined($trackSampleRate) && $trackSampleRate>0) {
+			$streamingRefs[0]->{'sampleRate'} = $trackSampleRate;
+		}
+		if(defined($trackChannels) && $trackChannels>0) {
+			$streamingRefs[0]->{'channels'} = $trackChannels;
+		}
 		my $item = {
 			'id' => "$serverPrefix:track:$trackMd5Url",
 			'text' => $displayText,
