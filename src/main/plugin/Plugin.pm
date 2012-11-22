@@ -1186,8 +1186,30 @@ sub processTrackResult {
 			$sortText = $trackSortTitle;
 			$displayText = $trackTitle;
 		}
+		my $format = Slim::Music::Info::mimeType($trackUrl);
+		if($format =~ /flac/) {
+			$format = 'audio/flac';
+		}elsif($format =~ /m4a/ || $format =~ /mp4/) {
+			$format = 'audio/m4a';
+		}elsif($format =~ /aac/) {
+			$format = 'audio/aac';
+		}elsif($format =~ /mp3/ || $format eq 'audio/x-mpeg' || $format eq 'audio/mpeg3' || $format eq 'audio/mpg') {
+			$format = 'audio/mpeg';
+		}elsif($format =~ /ogg/) {
+			$format = 'audio/ogg';
+		}elsif($format eq 'audio/L16' || $format eq 'audio/pcm') {
+			$format = 'audio/x-pcm';
+		}elsif($format eq 'audio/x-ms-wma' || $format eq 'application/vnd.ms.wms-hdr.asfv1' || $format eq 'application/octet-stream' || $format eq 'application/x-mms-framed' || $format eq 'audio/asf') {
+			$format = 'audio/x-ms-wma';
+		}elsif($format =~ /aiff/) {
+			$format = 'audio/x-aiff';
+		}elsif($format eq 'audio/x-wav') {
+			$format = 'audio/wav';
+		}else {
+			$format = 'audio/native';
+		}
 		my @streamingRefs = ({
-			'format' => Slim::Music::Info::mimeType($trackUrl),
+			'format' => $format,
 			'url' => "service://".getServiceId()."/plugins/IckStreamPlugin/music/$trackMd5Url/download"
 		});
 		if(defined($trackSampleSize) && $trackSampleSize>0) {
