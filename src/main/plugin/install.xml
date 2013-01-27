@@ -1,7 +1,7 @@
 <?xml version='1.0' standalone='yes'?>
 <extension>
     <name>PLUGIN_ICKSTREAM</name>
-    <creator>Erland Isaksson</creator>
+    <creator>ickStream GmbH</creator>
     <defaultState>enabled</defaultState>
     <description>SETUP_PLUGIN_ICKSTREAM_GROUP_DESC</description>
     <module>Plugins::IckStreamPlugin::Plugin</module>
