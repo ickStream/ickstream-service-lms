@@ -37,6 +37,25 @@
         <url>http://www.ickstream.com</url>
     </organization>
 
+    <scm>
+        <connection>scm:git:git@bitbucket.org:ickstream/ickstream-service-lms.git</connection>
+        <url>scm:git:git@bitbucket.org:ickstream/ickstream-service-lms.git</url>
+        <developerConnection>scm:git:git@bitbucket.org:ickstream/ickstream-service-lms.git</developerConnection>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>deployment</id>
+            <name>Internal Releases</name>
+            <url>http://ickstream.isaksson.info/nexus/content/repositories/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>deployment</id>
+            <name>Internal Releases</name>
+            <url>http://ickstream.isaksson.info/nexus/content/repositories/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <pluginManagement>
             <plugins>
