@@ -10,7 +10,7 @@
             <desc lang="EN">Plugin that makes LMS server available for ickStream devices</desc>
             <creator>ickStream GmbH</creator>
             <sha>${com.ickstream.services.lms.sha}</sha>
-            <url>http://erland.isaksson.info/ickstream/IckStreamPlugin-0.1-macosx.zip</url>
+            <url>http://downloads.ickstream.com/squeezebox/IckStreamPlugin-${buildNumber}-macosx.zip</url>
             <link>http://www.ickstream.com</link>
         </plugin>
     </plugins>
