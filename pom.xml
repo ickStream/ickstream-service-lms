@@ -95,8 +95,8 @@
                             <goal>single</goal>
                         </goals>
                         <configuration>
-                            <finalName>${project.artifactId}-0.1-${com.ickstream.os}</finalName>
-                            <appendAssemblyId>false</appendAssemblyId>
+                            <finalName>${project.artifactId}-0.1</finalName>
+                            <appendAssemblyId>true</appendAssemblyId>
                             <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
                             <attach>true</attach>
                             <descriptors>
