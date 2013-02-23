@@ -1052,7 +1052,7 @@ sub getInternalId {
 sub getTrack {
 	my $trackId = shift;
 	
-	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id ';
 	my $order_by = "tracks.titlesort";
 
 	my @whereDirectives = ();
@@ -1096,7 +1096,7 @@ sub findTracks {
 	my @whereDirectiveValues = ();
 	my @whereSearchDirectives = ();
 	my @whereSearchDirectiveValues = ();
-	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year FROM tracks JOIN albums on albums.id=tracks.album ';
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id ';
 	my $order_by = "tracks.disc,tracks.tracknum,tracks.titlesort";
 	if(exists($reqParams->{'artistId'})) {
 		my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
@@ -1175,6 +1175,8 @@ sub processTrackResult {
 	my $albumId;
 	my $albumTitle;
 	my $albumYear;
+	my $contributorIds;
+	my $contributorNames;
 	
 	$sth->bind_col(1,\$trackId);
 	$sth->bind_col(2,\$trackUrl);
@@ -1192,6 +1194,9 @@ sub processTrackResult {
 	$sth->bind_col(14,\$trackFormat);
 	$sth->bind_col(15,\$albumId);
 	$sth->bind_col(16,\$albumTitle);
+	$sth->bind_col(17,\$albumYear);
+	$sth->bind_col(18,\$contributorIds);
+	$sth->bind_col(19,\$contributorNames);
 
 	my $serverAddress = Slim::Utils::Network::serverAddr();
 	($serverAddress) = split /:/, $serverAddress;
@@ -1283,7 +1288,23 @@ sub processTrackResult {
 		if(defined($albumYear) && $albumYear>0) {
 			$item->{'itemAttributes'}->{'album'}->{'year'} = $albumYear;
 		}
-		
+		if(defined($contributorIds)) {
+			my @contributorIdsArray = split('\|',$contributorIds);
+			my @contributorNamesArray = split('\|',$contributorNames);
+			my @contributors = ();
+			while(scalar(@contributorIdsArray)>0) {
+				my $id = shift @contributorIdsArray;
+				my $name = shift @contributorNamesArray;
+				push @contributors,{
+					'id' => "$serverPrefix:artist:$id",
+					'name' => $name
+				};
+			}
+			@contributors = sort {
+				$a->{'name'} cmp $b->{'name'}
+			} @contributors;
+			$item->{'itemAttributes'}->{'mainArtists'} = \@contributors;
+		}
 		push @items,$item;
 	}
 	return \@items;		
