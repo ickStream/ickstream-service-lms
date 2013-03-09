@@ -411,9 +411,17 @@ sub getProtocolDescription {
 					],
 				};
 
+	my $playlistRequests = {
+					'type' => 'playlist',
+					'parameters' => [
+						['contextId','type']
+					],
+				};
+
 	my $trackRequests = {
 					'type' => 'track',
 					'parameters' => [
+						['contextId','type','playlistId'],
 						['contextId','type','albumId'],
 						['contextId','type','artistId'],
 						['contextId','type','artistId','albumId']
@@ -425,6 +433,7 @@ sub getProtocolDescription {
 			'name' => 'My Music',
 			'supportedRequests' => [
 				$artistRequests,
+				$playlistRequests,
 				$albumRequests,
 				$trackRequests
 			]
@@ -434,6 +443,12 @@ sub getProtocolDescription {
 
 	my $artistSearchRequests = {
 		'type' => 'artist',
+		'parameters' => [
+			['contextId','type','search']
+		]
+	};
+	my $playlistSearchRequests = {
+		'type' => 'playlist',
 		'parameters' => [
 			['contextId','type','search']
 		]
@@ -459,6 +474,7 @@ sub getProtocolDescription {
 			'contextId' => 'allMusic',
 			'name' => 'All Music',
 			'supportedRequests' => [
+				$playlistSearchRequests,
 				$artistSearchRequests,
 				$albumSearchRequests,
 				$trackSearchRequests
@@ -582,6 +598,8 @@ sub getItem {
 				$item = getAlbum($1);
 			}elsif($reqParams->{'itemId'} =~ /.*\:track\:(.*)$/) {
 				$item = getTrack($1);
+			}elsif($reqParams->{'itemId'} =~ /.*\:playlist\:(.*)$/) {
+				$item = getPlaylist($1);
 			}
 		}
 	
@@ -610,6 +628,8 @@ sub findItems {
 		my $items = undef;
 		if(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'album') {
 			$items = findAlbums($reqParams,$offset,$count);
+		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'playlist') {
+			$items = findPlaylists($reqParams,$offset,$count);
 		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'artist') {
 			$items = findArtists($reqParams,$offset,$count);
 		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'track') {
@@ -1039,6 +1059,104 @@ sub processArtistResult {
 	return \@items;		
 }
 
+sub findPlaylists {
+	my $reqParams = shift;
+	my $offset = shift;
+	my $count = shift;
+	
+	my $serverPrefix = getServerId();
+
+	my @items = ();
+	
+	my $sql = 'SELECT tracks.urlmd5,tracks.title,tracks.titlesort FROM tracks ';
+	my $order_by = undef;
+	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
+	$order_by = "tracks.titlesort $collate";
+
+	my @whereDirectives = ('tracks.content_type=?');
+	my @whereDirectiveValues = ('ssp');
+	my @whereSearchDirectives = ();
+	my @whereSearchDirectiveValues = ();
+	if(exists($reqParams->{'search'})) {
+		my $searchStrings = Slim::Utils::Text::searchStringSplit($reqParams->{'search'});
+		if( ref $searchStrings->[0] eq 'ARRAY') {
+			for my $search (@{$searchStrings->[0]}) {
+				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
+		}else {
+				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$searchStrings;
+		}
+	}
+
+	if(scalar(@whereDirectives)>0 || scalar(@whereSearchDirectives)>0) {
+		$sql .= 'WHERE ';
+		my $whereDirective;
+		if(scalar(@whereDirectives)>0) {
+			$whereDirective = join(' AND ', @whereDirectives);
+			if(scalar(@whereSearchDirectives)>0) {
+				$whereDirective .= ' AND ('.join(' OR ',@whereSearchDirectives).')';
+			}
+		}elsif(scalar(@whereSearchDirectives)>0) {
+			$whereDirective .= join(' OR ',@whereSearchDirectives);
+		}
+		$whereDirective =~ s/\%/\%\%/g;
+		push @whereDirectiveValues,@whereSearchDirectiveValues;
+		$sql .= $whereDirective . ' ';
+	}
+
+	$sql .= "GROUP BY tracks.id ORDER BY $order_by";
+	if(defined($count)) {
+		$sql .= " LIMIT $offset, $count";
+	}
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$log->debug("Executing $sql");
+	if(scalar(@whereDirectiveValues)>0) {
+		$log->debug("Using values: ".join(',',@whereDirectiveValues));
+		$sth->execute(@whereDirectiveValues);
+	}else {
+		$sth->execute();
+	}
+	return processPlaylistResult($sth);	
+}
+
+sub processPlaylistResult {
+	my $sth = shift;
+	
+	my $serverPrefix = getServerId();
+
+	my @items = ();
+	
+	my $playlistId;
+	my $playlistName;
+	my $playlistSortName;
+	
+	$sth->bind_col(1,\$playlistId);
+	$sth->bind_col(2,\$playlistName);
+	$sth->bind_col(3,\$playlistSortName);
+	
+	while ($sth->fetch) {
+		utf8::decode($playlistName);
+		utf8::decode($playlistSortName);
+		
+		my $item = {
+			'id' => "$serverPrefix:playlist:$playlistId",
+			'text' => $playlistName,
+			'sortText' => $playlistSortName,
+			'type' => "playlist",
+			'itemAttributes' => {
+				'id' => "$serverPrefix:playlist:$playlistId",
+				'name' => $playlistName
+			}
+		};
+		
+		push @items,$item;
+	}
+	return \@items;		
+}
+
 sub getInternalId {
 	my $globalId = shift;
 	
@@ -1083,6 +1201,40 @@ sub getTrack {
 	return $item;
 }
 
+sub getPlaylist {
+	my $trackId = shift;
+	
+	my $sql = 'SELECT tracks.urlmd5,tracks.title,tracks.titlesort FROM tracks ';
+	my $order_by = "tracks.titlesort";
+
+	my @whereDirectives = ();
+	my @whereDirectiveValues = ();
+	
+	push @whereDirectives, 'tracks.urlmd5=?';
+	push @whereDirectiveValues, $trackId;
+
+	if(scalar(@whereDirectives)>0) {
+		$sql .= 'WHERE ';
+		my $whereDirective;
+		if(scalar(@whereDirectives)>0) {
+			$whereDirective = join(' AND ', @whereDirectives);
+		}
+		$sql .= $whereDirective . ' ';
+	}
+	$sql .= "GROUP BY tracks.id ORDER BY $order_by";
+	$sql .= " LIMIT 0, 1";
+
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$log->debug("Executing $sql");
+	$log->debug("Using values: ".join(',',@whereDirectiveValues));
+	$sth->execute(@whereDirectiveValues);
+
+	my $items = processPlaylistResult($sth,undef);
+	my $item = pop @$items;
+	return $item;
+}
+
 sub findTracks {
 	my $reqParams = shift;
 	my $offset = shift;
@@ -1098,6 +1250,14 @@ sub findTracks {
 	my @whereSearchDirectiveValues = ();
 	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id ';
 	my $order_by = "tracks.disc,tracks.tracknum,tracks.titlesort";
+	if(exists($reqParams->{'playlistId'})) {
+		my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
+		$sql .= 'JOIN playlist_track ON playlist_track.track = tracks.url ';
+		$sql .= 'JOIN tracks AS playlists ON playlists.id = playlist_track.playlist ';
+		push @whereDirectives, 'playlists.urlmd5=?';
+		push @whereDirectiveValues, getInternalId($reqParams->{'playlistId'});
+		$order_by = "playlist_track.position";
+	}
 	if(exists($reqParams->{'artistId'})) {
 		my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
 		$sql .= 'JOIN contributor_track ON contributor_track.track = tracks.id ';
@@ -1107,7 +1267,7 @@ sub findTracks {
 	if(exists($reqParams->{'albumId'})) {
 		push @whereDirectives, 'tracks.album=?';
 		push @whereDirectiveValues, getInternalId($reqParams->{'albumId'});
-	}else {
+	}elsif(!exists($reqParams->{'playlistId'})) {
 		$order_by = "tracks.titlesort";
 	}
 	if(exists($reqParams->{'search'})) {
