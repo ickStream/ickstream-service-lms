@@ -92,6 +92,7 @@ sub start {
 	# fallback to Proc::Background finding java
 	$javaPath ||= "java";
 
+	$serverName = "\"".$serverName."\"";
 	my @cmd = ($javaPath, @opts, "-jar", "$serverPath", $serverUUID, $serverName, $endpoint);
 
 	$log->info("Starting server");
