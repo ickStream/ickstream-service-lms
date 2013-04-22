@@ -92,7 +92,6 @@ sub start {
 	# fallback to Proc::Background finding java
 	$javaPath ||= "java";
 
-	$serverName = "\"".$serverName."\"";
 	my @cmd = ($javaPath, @opts, "-jar", "$serverPath", $serverUUID, $serverName, $endpoint);
 
 	$log->info("Starting server");
@@ -103,6 +102,8 @@ sub start {
 
 	if (!$class->running) {
 		$log->error("Unable to launch server");
+	}else {
+		$log->info("Successfully launched server");
 	}
 }
 
