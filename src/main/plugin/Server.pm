@@ -98,8 +98,16 @@ sub start {
 
 	$log->debug("cmdline: ", join(' ', @cmd));
 
+	# Fix to make Java launch on OSX
+	my $icuData = undef;
+	if(exists($ENV{ICU_DATA})) {
+		$icuData = $ENV{ICU_DATA};
+		$ENV{ICU_DATA} = undef;
+	}
 	$server = Proc::Background->new({'die_upon_destroy' => 1}, @cmd);
-
+	if(defined($icuData)) {
+		$ENV{ICU_DATA} = $icuData;
+	}
 	if (!$class->running) {
 		$log->error("Unable to launch server");
 	}else {
