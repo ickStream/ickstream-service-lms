@@ -63,6 +63,7 @@ our %contexts = ();
 # this array provides a function for each supported JSON method
 my %methods = (
 		'getServiceInformation'	=> \&getServiceInformation,
+		'getProtocolVersions'	=> \&getProtocolVersions,
 		'getManagementProtocolDescription' => \&getManagementProtocolDescription,
 		'getProtocolDescription' => \&getProtocolDescription,
         'findTopLevelItems'        => \&findTopLevelItems,
@@ -671,6 +672,19 @@ sub getServiceInformation {
 		'name' => $serverName,
 		'type' => 'content',
 		'serviceUrl' => 'http://'.$serverAddress
+	};
+	# the request was successful and is not async, send results back to caller!
+	requestWrite($result, $context->{'httpClient'}, $context);
+}
+
+sub getProtocolVersions {
+	my $context = shift;
+	if ( $log->is_debug ) {
+	        $log->debug( "getProtocolVersions()" );
+	}
+	my $result = {
+		'minVersion' => '1.0',
+		'maxVersion' => '1.0'
 	};
 	# the request was successful and is not async, send results back to caller!
 	requestWrite($result, $context->{'httpClient'}, $context);
