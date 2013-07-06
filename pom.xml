@@ -166,10 +166,10 @@
         <profile>
             <id>linux</id>
             <activation>
-                <os>
-                    <family>unix</family>
-                    <name>!mac os x</name>
-                </os>
+                <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>linux</value>
+                </property>
             </activation>
             <properties>
                 <com.ickstream.os>linux</com.ickstream.os>
@@ -189,6 +189,31 @@
                 <dependency>
                     <groupId>com.ickstream.common.ickdiscovery.java</groupId>
                     <artifactId>libickDiscoveryJNI64</artifactId>
+                    <version>1.0-SNAPSHOT</version>
+                    <type>so</type>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>linuxarm</id>
+            <activation>
+                <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>linuxarm</value>
+                </property>
+            </activation>
+            <properties>
+                <com.ickstream.os>linuxarm</com.ickstream.os>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.ickstream.common.ickservice</groupId>
+                    <artifactId>ickHttpServiceWrapper</artifactId>
+                    <version>1.0-SNAPSHOT</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.ickstream.common.ickdiscovery.java</groupId>
+                    <artifactId>libickDiscoveryJNIARM</artifactId>
                     <version>1.0-SNAPSHOT</version>
                     <type>so</type>
                 </dependency>

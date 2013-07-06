@@ -37,6 +37,7 @@
                 <include>com.ickstream.common.ickservice:ickHttpServiceWrapper</include>
                 <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI32</include>
                 <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI64</include>
+                <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNIARM</include>
             </includes>
         </dependencySet>
     </dependencySets>

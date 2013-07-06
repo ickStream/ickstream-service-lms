@@ -74,6 +74,14 @@
                   <artifactId>IckStreamPlugin</artifactId>
                   <version>1.0-SNAPSHOT</version>
                   <type>zip</type>
+                  <classifier>linuxarm</classifier>
+                  <outputDirectory>${project.build.directory}</outputDirectory>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>com.ickstream.service.lms</groupId>
+                  <artifactId>IckStreamPlugin</artifactId>
+                  <version>1.0-SNAPSHOT</version>
+                  <type>zip</type>
                   <classifier>macosx</classifier>
                   <outputDirectory>${project.build.directory}</outputDirectory>
                 </artifactItem>
@@ -84,6 +92,15 @@
                   <type>xml</type>
                   <classifier>linux</classifier>
                   <destFileName>repository-linux.xml</destFileName>
+                  <outputDirectory>${project.build.directory}</outputDirectory>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>com.ickstream.service.lms</groupId>
+                  <artifactId>IckStreamPlugin</artifactId>
+                  <version>1.0-SNAPSHOT</version>
+                  <type>xml</type>
+                  <classifier>linuxarm</classifier>
+                  <destFileName>repository-linuxarm.xml</destFileName>
                   <outputDirectory>${project.build.directory}</outputDirectory>
                 </artifactItem>
                 <artifactItem>
