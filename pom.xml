@@ -214,8 +214,8 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK
-                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE"
+                                    <commandlineArgs>cleanall all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK \
+                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" \
                                         EXECUTABLE=ickHttpWrapperDaemon-x86
                                     </commandlineArgs>
                                 </configuration>
@@ -241,8 +241,8 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK
-                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE"
+                                    <commandlineArgs>cleanall all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK \
+                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" \
                                         EXECUTABLE=ickHttpWrapperDaemon-x86_64
                                     </commandlineArgs>
                                 </configuration>
@@ -288,8 +288,8 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags}
-                                        -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE"
+                                    <commandlineArgs>cleanall all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} \
+                                        -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" \
                                         EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabihf
                                     </commandlineArgs>
                                 </configuration>
@@ -335,8 +335,8 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags}
-                                        -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE"
+                                    <commandlineArgs>cleanall all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} \
+                                        -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" \
                                         EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabi
                                     </commandlineArgs>
                                 </configuration>
@@ -381,8 +381,8 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK
-                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE"
+                                    <commandlineArgs>cleanall all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK \
+                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" \
                                         EXECUTABLE=ickHttpWrapperDaemon-x86
                                     </commandlineArgs>
                                 </configuration>
@@ -408,8 +408,8 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK
-                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE"
+                                    <commandlineArgs>cleanall all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK \
+                                        ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" \
                                         EXECUTABLE=ickHttpWrapperDaemon-x86_64
                                     </commandlineArgs>
                                 </configuration>
