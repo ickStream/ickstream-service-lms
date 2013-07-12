@@ -45,28 +45,32 @@ my $server;
 sub start {
 	my ($class, $plugin) = @_;
 
-	my $serverPath = Plugins::IckStreamPlugin::Plugin->jars(qr/^ickHttpServiceWrapper/);
+    my $daemon = qr/^ickHttpWrapperDaemon/;
+    if ($Config::Config{'archname'} =~ /x86_64/) {
+        $daemon .= "-x86_64";
+    }else ($Config::Config{'archname'} =~ /darwin/{
+        $daemon .= "-x86_64";
+    }else ($Config::Config{'archname'} =^  /arm\-linux\-gnueabihf\-/) {
+        $daemon .= "-arm-linux-gnueabihf";
+    }else ($Config::Config{'archname'} =^  /arm\-linux\-gnueabi\-/) {
+        $daemon .= "-arm-linux-gnueabi";
+    }else {
+        $daemon .= "-x86";
+    }
+
+	my $serverPath = Plugins::IckStreamPlugin::Plugin->binaries($daemon);
 
 	if ($serverPath) {
 
-		$log->debug("server binary: $serverPath");
+		$log->debug("daemon binary: $serverPath");
 
 	} else {
 
-		$log->error("can't find server binary");
+		$log->error("can't find daemon binary");
 		return;
 	}
 
 	my $serverLog = catdir(Slim::Utils::OSDetect::dirsFor('log'), 'ickstream.log');
-
-	my @opts = (
-		"-Dcom.ickstream.common.ickservice.daemon=true",
-		"-Dcom.ickstream.common.ickservice.stdout=$serverLog",
-		"-Dcom.ickstream.common.ickservice.stderr=$serverLog",
-	);
-	if($log->is_debug) {
-		push @opts,"-Dcom.ickstream.common.ickservice.debug=true";
-	}
 
 	my $endpoint;
 	if ($sprefs->get('authorize')) {
@@ -84,30 +88,20 @@ sub start {
 		$serverUUID = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
 		$prefs->set('uuid',$serverUUID);
 	}
-	
-	# use server to search for java and convert to short path if windows
-	my $javaPath = Slim::Utils::Misc::findbin("java");
-	$javaPath = Slim::Utils::OSDetect::getOS->decodeExternalHelperPath($javaPath);
+    my $serverIP = Slim::Utils::IPDetect::IP();
+    if(!$serverIP) {
+        log->error("Can't detect IP address");
+        return;
+    }
 
-	# fallback to Proc::Background finding java
-	$javaPath ||= "java";
-
-	my @cmd = ($javaPath, @opts, "-jar", "$serverPath", $serverUUID, $serverName, $endpoint);
+	my @cmd = ($serverPath, $serverIP, $serverUUID, $serverName, $endpoint);
 
 	$log->info("Starting server");
 
 	$log->debug("cmdline: ", join(' ', @cmd));
 
-	# Fix to make Java launch on OSX
-	my $icuData = undef;
-	if(exists($ENV{ICU_DATA})) {
-		$icuData = $ENV{ICU_DATA};
-		$ENV{ICU_DATA} = undef;
-	}
 	$server = Proc::Background->new({'die_upon_destroy' => 1}, @cmd);
-	if(defined($icuData)) {
-		$ENV{ICU_DATA} = $icuData;
-	}
+
 	if (!$class->running) {
 		$log->error("Unable to launch server");
 	}else {

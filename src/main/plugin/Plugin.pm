@@ -92,30 +92,30 @@ sub shutdownPlugin {
 
 sub getDisplayName { 'PLUGIN_ICKSTREAM' }
 
-my $jars;
+my $binaries;
 
-sub jars {
+sub binaries {
 	my ($class, $re) = @_;
 
-	$jars || do {
+	$binaries || do {
 
 		my $basedir = $class->_pluginDataFor('basedir');
 		my @dirs = ($basedir);
 		
 		for my $dir (@dirs) {
-			for my $file (Slim::Utils::Misc::readDirectory($dir, 'jar')) {
+			for my $file (Slim::Utils::Misc::readDirectory($dir)) {
 				my $path = catdir($dir, $file);{ 
 					if (-f $path && -r $path) {
-						$jars->{ $file } = $path;
+						$binaries->{ $file } = $path;
 					}
 				}
 			}
 		}
 	};
 
-	for my $key (keys %$jars) {
+	for my $key (keys %$binaries) {
 		if ($key =~ $re) {
-			return ($key, $jars->{$key});
+			return ($key, $binaries->{$key});
 		}
 	}
 }

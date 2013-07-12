@@ -1,0 +1,3 @@
+[submodule "ickp2p"]
+	path = ickp2p
+	url = https://bitbucket.org/ickstream/ickstream-p2p.git

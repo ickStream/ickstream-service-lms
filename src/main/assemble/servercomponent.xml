@@ -26,18 +26,16 @@
   -->
 
 <component>
-    <dependencySets>
-        <dependencySet>
+    <fileSets>
+        <fileSet>
+            <directory>src/main/daemon</directory>
             <outputDirectory>IckStreamPlugin</outputDirectory>
-            <useProjectArtifact>false</useProjectArtifact>
-            <unpack>false</unpack>
-            <scope>runtime</scope>
-            <useTransitiveDependencies>false</useTransitiveDependencies>
             <includes>
-                <include>com.ickstream.common.ickservice:ickHttpServiceWrapper</include>
-                <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI32</include>
-                <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI64</include>
+                <include>**/ickHttpWrapperDaemon-x86</include>
+                <include>**/ickHttpWrapperDaemon-x86_64</include>
+                <include>**/ickHttpWrapperDaemon-arm-linux-gnueabi</include>
+                <include>**/ickHttpWrapperDaemon-arm-linux-gnueabihf</include>
             </includes>
-        </dependencySet>
-    </dependencySets>
+        </fileSet>
+    </fileSets>
 </component>

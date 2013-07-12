@@ -3,3 +3,5 @@ target
 *.iml
 *.iws
 *.idea
+*.o
+ickHttpWrapperDaemon-*
