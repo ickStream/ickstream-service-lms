@@ -175,21 +175,9 @@ int main( int argc, char *argv[] )
 		printf("Unable to parse path from URL\n");
 		return 0;
 	}
-	
-    int cpid = fork();
-    if( cpid==-1 ) {
-      printf( "Could not fork\n" );
-      return -2;
-    }
-    if( cpid )   /* Parent process exits ... */
-      return 0;
-    if( setsid()==-1 ) {
-      printf( "Could not create new session\n" );
-      return -2;
-    }
 
     int fd1 = open( "/dev/null", O_RDWR, 0 );
-    int fd2 = open( logFile, O_RDWR|O_CREAT|O_APPEND, 0644 );
+    int fd2 = open( logFile, O_RDWR|O_CREAT|O_TRUNC, 0644 );
     if( fd1!=-1) {
       dup2(fd1, fileno(stdin));
     }
