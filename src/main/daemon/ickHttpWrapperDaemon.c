@@ -5,6 +5,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "ickDiscovery.h"
 
 char* wrapperURL = NULL;
@@ -135,14 +137,15 @@ static void shutdownHandler( int sig, siginfo_t *siginfo, void *context )
 
 int main( int argc, char *argv[] )
 {
-	if(argc != 5) {
-		printf("Usage: %s IP-address deviceId deviceName wrapperURL\n",argv[0]);
+	if(argc != 6) {
+		printf("Usage: %s IP-address deviceId deviceName wrapperURL logFile\n",argv[0]);
 		return 0;
 	}
     char* networkAddress = argv[1];
 	char* deviceId = argv[2];
 	char* deviceName = argv[3];
 	wrapperURL = argv[4];
+	char* logFile = argv[5];
 	
     char host[100];
 	memset(wrapperPath, 0, 1024);
@@ -169,10 +172,32 @@ int main( int argc, char *argv[] )
 		}
 	}
 	if(strlen(wrapperPath)==0) {
-		printf("Unable to parse path from URL");
+		printf("Unable to parse path from URL\n");
 		return 0;
 	}
 	
+    int cpid = fork();
+    if( cpid==-1 ) {
+      printf( "Could not fork\n" );
+      return -2;
+    }
+    if( cpid )   /* Parent process exits ... */
+      return 0;
+    if( setsid()==-1 ) {
+      printf( "Could not create new session\n" );
+      return -2;
+    }
+
+    int fd1 = open( "/dev/null", O_RDWR, 0 );
+    int fd2 = open( logFile, O_RDWR|O_CREAT|O_APPEND, 0644 );
+    if( fd1!=-1) {
+      dup2(fd1, fileno(stdin));
+    }
+    if( fd2!=-1) {
+      dup2(fd2, fileno(stdout));
+      dup2(fd2, fileno(stderr));
+    }
+
     printf("Initializing ickP2P for %s(%s) at %s...\n",deviceName,deviceId,networkAddress);
     printf("Wrapping URL: %s\n",wrapperURL);
     printf("- Using IP-address: %s\n",wrapperIP);

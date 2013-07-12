@@ -45,17 +45,17 @@ my $server;
 sub start {
 	my ($class, $plugin) = @_;
 
-    my $daemon = qr/^ickHttpWrapperDaemon/;
+    my $daemon = qr/^ickHttpWrapperDaemon$/;
     if ($Config::Config{'archname'} =~ /x86_64/) {
-        $daemon .= "-x86_64";
-    }else ($Config::Config{'archname'} =~ /darwin/{
-        $daemon .= "-x86_64";
-    }else ($Config::Config{'archname'} =^  /arm\-linux\-gnueabihf\-/) {
-        $daemon .= "-arm-linux-gnueabihf";
-    }else ($Config::Config{'archname'} =^  /arm\-linux\-gnueabi\-/) {
-        $daemon .= "-arm-linux-gnueabi";
+        $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
+    }elsif ($Config::Config{'archname'} =~ /darwin/) {
+        $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
+    }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabihf\-/) {
+        $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabihf$/;
+    }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabi\-/) {
+        $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
     }else {
-        $daemon .= "-x86";
+        $daemon = qr/^ickHttpWrapperDaemon\-x86$/;
     }
 
 	my $serverPath = Plugins::IckStreamPlugin::Plugin->binaries($daemon);
@@ -66,11 +66,14 @@ sub start {
 
 	} else {
 
-		$log->error("can't find daemon binary");
+		$log->error("can't find daemon binary: $daemon");
 		return;
 	}
 
 	my $serverLog = catdir(Slim::Utils::OSDetect::dirsFor('log'), 'ickstream.log');
+	if(!$log->is_debug()) {
+	    $serverLog = catdir("/dev/null");
+	}
 
 	my $endpoint;
 	if ($sprefs->get('authorize')) {
@@ -94,7 +97,7 @@ sub start {
         return;
     }
 
-	my @cmd = ($serverPath, $serverIP, $serverUUID, $serverName, $endpoint);
+	my @cmd = ($serverPath, $serverIP, $serverUUID, $serverName, $endpoint, $serverLog);
 
 	$log->info("Starting server");
 

@@ -103,8 +103,8 @@ sub binaries {
 		my @dirs = ($basedir);
 		
 		for my $dir (@dirs) {
-			for my $file (Slim::Utils::Misc::readDirectory($dir)) {
-				my $path = catdir($dir, $file);{ 
+			for my $file (Slim::Utils::Misc::readDirectory($dir,qr/ickHttpWrapperDaemon-/)) {
+				my $path = catdir($dir, $file);{
 					if (-f $path && -r $path) {
 						$binaries->{ $file } = $path;
 					}
@@ -114,10 +114,12 @@ sub binaries {
 	};
 
 	for my $key (keys %$binaries) {
+	use Slim::Utils::Misc;
 		if ($key =~ $re) {
 			return ($key, $binaries->{$key});
 		}
 	}
+	return (undef,undef);
 }
 
 sub webPages {
