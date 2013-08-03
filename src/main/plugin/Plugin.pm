@@ -68,6 +68,7 @@ my %methods = (
 		'getProtocolDescription' => \&getProtocolDescription,
         'findTopLevelItems'        => \&findTopLevelItems,
         'findItems'        => \&findItems,
+        'getNextDynamicPlaylistTracks'        => \&getNextDynamicPlaylistTracks,
         'getItem'	=> \&getItem,
 );
 
@@ -777,9 +778,11 @@ sub requestWrite {
         my $result = shift;
         my $httpClient = shift;
         my $context = shift;
+        my $error = shift;
 
         if($log->is_debug) { $log->debug("requestWrite()"); }
         if($log->is_debug) { $log->debug(Data::Dump::dump($result)); }
+        if($log->is_debug) { $log->debug(Data::Dump::dump($error)); }
 
         if (!$httpClient) {
                 
@@ -810,7 +813,7 @@ sub requestWrite {
                 handleClose($httpClient);
                 return;
         }
-        generateJSONResponse($context, $result);
+        generateJSONResponse($context, $result, $error);
 }
 
 sub getAlbum {
@@ -1429,6 +1432,7 @@ sub processTrackResult {
 		utf8::decode($trackSortTitle);
 		utf8::decode($trackTitle);
 		utf8::decode($albumTitle);
+		utf8::decode($contributorNames);
 			
 		my $sortText = (defined($trackDisc)?($trackDisc<10?"0".$trackDisc."-":$trackDisc."-"):"").(defined($trackNumber)?($trackNumber<10?"0".$trackNumber:$trackNumber):"").". ".$trackSortTitle;
 		my $displayText = (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle;
@@ -1648,5 +1652,185 @@ sub processFolderResult {
 	return \@items;		
 }
 
+sub getNextDynamicPlaylistTracks {
+	my $context = shift;
+
+	eval {
+	    # get the JSON-RPC params
+	    my $reqParams = $context->{'procedure'}->{'params'};
+	
+		if ( $log->is_debug ) {
+		        $log->debug( "getNextDynamicPlaylistTracks(" . Data::Dump::dump($reqParams) . ")" );
+		}
+	
+		my $count = $reqParams->{'count'} if exists($reqParams->{'count'});
+		if(!defined($count)) {
+			$count = 10;
+		}
+		
+		my $selectionParameters = $reqParams->{'selectionParameters'} if exists($reqParams->{'selectionParameters'});
+		if(!defined($selectionParameters)) {
+			requestWrite(undef,$context->{'httpClient'}, $context, {
+				'code' => -32602,
+				'message' => 'Missing parameter: selectionParameters'
+			});
+			return;
+		}
+		if(!defined($selectionParameters->{'type'})) {
+			requestWrite(undef,$context->{'httpClient'}, $context, {
+				'code' => -32602,
+				'message' => 'Missing parameter: selectionParameters.type'
+			});
+			return;
+		}
+		my $type = $selectionParameters->{'type'};
+		
+		my $items = undef;
+		
+		if($type eq 'RANDOM_ALL') {
+			$items = queryNextDynamicPlaylistTracks($count);
+		}elsif($type eq 'RANDOM_MY_LIBRARY') {
+			$items = queryNextDynamicPlaylistTracks($count);
+		}elsif($type eq 'RANDOM_MY_PLAYLISTS') {
+			$items = queryNextDynamicPlaylistTracksFromMyPlaylists($count);
+		}elsif($type eq 'RANDOM_FOR_ARTIST') {
+			if(!defined($selectionParameters->{'data'})) {
+				requestWrite(undef,$context->{'httpClient'}, $context, {
+					'code' => -32602,
+					'message' => 'Missing parameter: selectionParameters.data'
+				});
+			}
+			if(!defined($selectionParameters->{'data'}->{'artist'}) && !defined($selectionParameters->{'data'}->{'artistId'})) {
+				requestWrite(undef,$context->{'httpClient'}, $context, {
+					'code' => -32602,
+					'message' => 'Missing parameter: selectionParameters.data.playlist or selectionParameters.data.playlistId'
+				});
+			}
+			$items = queryNextDynamicPlaylistTracksFromArtist($count,$selectionParameters->{'data'});
+		}elsif($type eq 'RANDOM_FOR_PLAYLIST') {
+			if(!defined($selectionParameters->{'data'})) {
+				requestWrite(undef,$context->{'httpClient'}, $context, {
+					'code' => -32602,
+					'message' => 'Missing parameter: selectionParameters.data'
+				});
+			}
+			if(!defined($selectionParameters->{'data'}->{'playlist'}) && !defined($selectionParameters->{'data'}->{'playlistId'})) {
+				requestWrite(undef,$context->{'httpClient'}, $context, {
+					'code' => -32602,
+					'message' => 'Missing parameter: selectionParameters.data.playlist or selectionParameters.data.playlistId'
+				});
+			}
+			$items = queryNextDynamicPlaylistTracksFromPlaylist($count, $selectionParameters->{'data'});
+		}
+			
+		my $result;
+		if(defined($items)) {	
+			$result = {
+				'expirationTimestamp' => time(),
+				'items' => $items
+			};
+		}else {
+			my @empty = ();
+			$result = {
+				'expirationTimestamp' => time(),
+				'items' => \@empty
+			};
+		}
+	
+		# the request was successful and is not async, send results back to caller!
+		requestWrite($result, $context->{'httpClient'}, $context);
+	};
+    if ($@) {
+		$log->error("An error occurred $@");
+    }
+}
+
+sub queryNextDynamicPlaylistTracks {
+	my $count = shift;
+	
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id GROUP BY tracks.id ORDER BY random() LIMIT 0,'.$count;
+
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$sth->execute();
+
+	my $items = processTrackResult($sth,undef);
+	return $items;
+}
+
+sub queryNextDynamicPlaylistTracksFromMyPlaylists {
+	my $count = shift;
+	
+	my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album JOIN playlist_track on playlist_track.track=tracks.url LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id GROUP BY tracks.id ORDER BY random() LIMIT 0,'.$count;
+
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$sth->execute();
+
+	my $items = processTrackResult($sth,undef);
+	return $items;
+}
+
+sub queryNextDynamicPlaylistTracksFromArtist {
+	my $count = shift;
+	my $parameters = shift;
+	
+	
+	my $sql;
+	my $sth = undef;
+	if($parameters->{'artistId'} && getInternalId($parameters->{'artistId'})) {
+		my $artistId = getInternalId($parameters->{'artistId'});
+		$sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id WHERE ct.contributor=? GROUP BY tracks.id ORDER BY random() LIMIT 0,'.$count;
+
+		my $dbh = Slim::Schema->dbh;
+		$sth = $dbh->prepare_cached($sql);
+		$sth->execute(($artistId));
+	}elsif($parameters->{'artist'}) {
+		my $artistName = $parameters->{'artist'};
+		
+		$sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id WHERE contributors.name=? GROUP BY tracks.id ORDER BY random() LIMIT 0,'.$count;
+		my $dbh = Slim::Schema->dbh;
+		$sth = $dbh->prepare_cached($sql);
+		$sth->execute(($artistName));
+	}
+
+	if(defined($sth)) {
+		my $items = processTrackResult($sth,undef);
+		return $items;
+	}else {
+		return undef;
+	}
+}
+
+sub queryNextDynamicPlaylistTracksFromPlaylist {
+	my $count = shift;
+	my $parameters = shift;
+	
+	
+	my $sql;
+	my $sth = undef;
+	if($parameters->{'playlistId'} && getInternalId($parameters->{'playlistId'})) {
+		my $artistId = getInternalId($parameters->{'playlistId'});
+		$sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album JOIN playlist_track as pt on pt.track=tracks.url JOIN tracks as playlists on playlists.id=pt.playlist LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id WHERE playlists.urlmd5=? GROUP BY tracks.id ORDER BY random() LIMIT 0,'.$count;
+
+		my $dbh = Slim::Schema->dbh;
+		$sth = $dbh->prepare_cached($sql);
+		$sth->execute(($artistId));
+	}elsif($parameters->{'playlist'}) {
+		my $playlistName = $parameters->{'playlist'};
+		
+		$sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album JOIN playlist_track as pt on pt.track=tracks.url JOIN tracks as playlists on playlists.id=pt.playlist LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id WHERE playlists.title=? GROUP BY tracks.id ORDER BY random() LIMIT 0,'.$count;
+		my $dbh = Slim::Schema->dbh;
+		$sth = $dbh->prepare_cached($sql);
+		$sth->execute(($playlistName));
+	}
+
+	if(defined($sth)) {
+		my $items = processTrackResult($sth,undef);
+		return $items;
+	}else {
+		return undef;
+	}
+}
 
 1;
