@@ -441,8 +441,36 @@ sub getProtocolDescription {
 				$trackRequests
 			]
 		};
-	
+
 	push @contexts,$myMusicContext;
+		
+	my $folderRequests = {
+					'type' => 'menu',
+					'parameters' => [
+						['contextId','type'],
+					]
+				};
+	my $folderContentRequests = {
+					'parameters' => [
+						['contextId','menuId']
+					]
+				};
+
+	my $serverName = $serverPrefs->get('libraryname');
+	if(!defined($serverName) || $serverName eq '') {
+		$serverName = Slim::Utils::Network::hostName();
+	}
+
+	my $myMusicFolderContext = {
+			'contextId' => 'myMusicFolder',
+			'name' => 'Music Folder ('.$serverName.')',
+			'supportedRequests' => [
+				$folderRequests,
+				$folderContentRequests
+			]
+		};
+	
+	push @contexts,$myMusicFolderContext;
 
 	my $artistSearchRequests = {
 		'type' => 'artist',
@@ -603,6 +631,8 @@ sub getItem {
 				$item = getTrack($1);
 			}elsif($reqParams->{'itemId'} =~ /.*\:playlist\:(.*)$/) {
 				$item = getPlaylist($1);
+			}elsif($reqParams->{'itemId'} =~ /.*\:folder\:(.*)$/) {
+				$item = getFolder($1);
 			}
 		}
 	
@@ -637,14 +667,27 @@ sub findItems {
 			$items = findArtists($reqParams,$offset,$count);
 		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'track') {
 			$items = findTracks($reqParams,$offset,$count);
+		} elsif(exists($reqParams->{'contextId'}) && $reqParams->{'contextId'} eq 'myMusicFolder' && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu')) {
+			$items = findFolders($reqParams,$offset,$count);
 		}
-			
-		my $result = {
-			'offset' => $offset,
-			'count' => scalar(@$items),
-			'expirationTimestamp' => time()+24*3600,
-			'items' => $items
-		};
+		
+		my $result;
+		if(defined($items)) {	
+			$result = {
+				'offset' => $offset,
+				'count' => scalar(@$items),
+				'expirationTimestamp' => time()+24*3600,
+				'items' => $items
+			};
+		}else {
+			my @empty = ();
+			$result = {
+				'offset' => $offset,
+				'count' => 0,
+				'expirationTimestamp' => time(),
+				'items' => \@empty
+			};
+		}
 	
 		# the request was successful and is not async, send results back to caller!
 		requestWrite($result, $context->{'httpClient'}, $context);
@@ -937,6 +980,7 @@ sub processAlbumResult {
 		
 		push @items,$item;
 	}
+	$sth->finish();
 	return \@items;		
 }
 
@@ -1072,6 +1116,7 @@ sub processArtistResult {
 		
 		push @items,$item;
 	}
+	$sth->finish();
 	return \@items;		
 }
 
@@ -1170,6 +1215,7 @@ sub processPlaylistResult {
 		
 		push @items,$item;
 	}
+	$sth->finish();
 	return \@items;		
 }
 
@@ -1483,7 +1529,124 @@ sub processTrackResult {
 		}
 		push @items,$item;
 	}
+	$sth->finish();
 	return \@items;		
 }
+
+sub findFolders {
+	my $reqParams = shift;
+	my $offset = shift;
+	my $count = shift;
+	
+	my @items = ();
+	if(!defined($count)) {
+		$count = 200;
+	}
+	
+	my $dbh = Slim::Schema->dbh;
+	
+	my $folderId = undef;
+	if(exists($reqParams->{'menuId'})) {
+		my $internalId = getInternalId($reqParams->{'menuId'});
+		my $sql = "SELECT id from tracks where urlmd5=?";
+		my $sth = $dbh->prepare_cached($sql);
+		$sth->execute(($internalId));
+		$sth->bind_col(1,\$folderId);
+		if ($sth->fetch) {
+		}else {
+			$sth->finish();
+			return \@items;
+		}
+		$sth->finish();
+	}
+
+	my $request = undef;
+	if(defined($folderId)) {
+		$request = Slim::Control::Request->new(undef, ["musicfolder",$offset,$count,"folder_id:".$folderId]);
+	}else {
+		$request = Slim::Control::Request->new(undef, ["musicfolder",$offset,$count]);
+	}
+	
+	$request->execute();
+	if($request->isStatusError()) {
+		return \@items;
+	}
+	my $foundItems = $request->getResult("folder_loop");
+	foreach my $it (@$foundItems) {
+		if($it->{'type'} eq 'track') {
+			my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album LEFT JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id WHERE tracks.id=? GROUP BY tracks.id';
+			
+			my $sth = $dbh->prepare_cached($sql);
+			$sth->execute(($it->{'id'}));
+		
+			my $trackItems = processTrackResult($sth,undef);
+			my $track = pop @$trackItems;
+			if(defined($track)) {
+				push @items,$track;
+			}
+		}elsif($it->{'type'} eq 'folder') {
+			my $sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.title,tracks.titlesort FROM tracks WHERE id=?';
+			
+			my $sth = $dbh->prepare_cached($sql);
+			$sth->execute(($it->{'id'}));
+
+			my $folderItems = processFolderResult($sth,undef);
+			my $folder = pop @$folderItems;
+			if(defined($folder)) {
+				push @items,$folder;
+			}
+		}
+	}
+	return \@items;
+}
+
+sub processFolderResult {
+	my $sth = shift;
+	my $requestedAlbumId = shift;
+	
+	my $serverPrefix = getServerId();
+	my @items = ();
+
+	my $trackId;
+	my $trackUrl;
+	my $trackMd5Url;
+	my $trackTitle;
+	my $trackSortTitle;
+	
+	$sth->bind_col(1,\$trackId);
+	$sth->bind_col(2,\$trackUrl);
+	$sth->bind_col(3,\$trackMd5Url);
+	$sth->bind_col(4,\$trackTitle);
+	$sth->bind_col(5,\$trackSortTitle);
+
+	my $serverAddress = Slim::Utils::Network::serverAddr();
+	($serverAddress) = split /:/, $serverAddress;
+	
+	$serverAddress .= ":" . $serverPrefs->get('httpport');
+	
+	while ($sth->fetch) {
+		utf8::decode($trackSortTitle);
+		utf8::decode($trackTitle);
+			
+		my $sortText = $trackSortTitle;
+		my $displayText = $trackTitle;
+
+		my $item = {
+			'id' => "$serverPrefix:folder:$trackMd5Url",
+			'text' => $trackTitle,
+			'sortText' => $trackSortTitle,
+			'type' => "menu",
+			'itemAttributes' => {
+				'id' => "$serverPrefix:folder:$trackMd5Url",
+				'name' => $trackTitle
+			}
+		};
+		
+		push @items,$item;
+	}
+	$sth->finish();
+	return \@items;		
+}
+
 
 1;
