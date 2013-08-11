@@ -52,7 +52,7 @@ sub start {
         $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabihf\-/) {
         $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabihf$/;
-    }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabi\-/) {
+    }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabi\-/ || $Config::Config{'myarchname'} =~  /armv5tel/) {
         $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-/) {
         if ($Config::Config{'lddlflags'} =~  /\-mfloat-abi=hard/) {
