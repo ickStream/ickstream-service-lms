@@ -1053,21 +1053,30 @@ sub findArtists {
 
 	my @items = ();
 	
+	my $va_pref = $serverPrefs->get('variousArtistAutoIdentification');
+	
 	my @whereDirectives = ();
 	my @whereDirectiveValues = ();
 	my $sql = 'SELECT contributors.id,contributors.name,contributors.namesort FROM contributors JOIN contributor_album ON contributors.id=contributor_album.contributor ';
-	$sql .= ' AND contributor_album.role IN (';
-	my $roles = Slim::Schema->artistOnlyRoles || [];
-	my $first = 1;
-	foreach (@{$roles}) {
-		if(!$first) {
-			$sql .= ', ';
+	if(!exists($reqParams->{'search'})) {
+		$sql .= ' AND contributor_album.role IN (';
+		my $roles = Slim::Schema->artistOnlyRoles || [];
+		my $first = 1;
+		foreach (@{$roles}) {
+			if(!$first) {
+				$sql .= ', ';
+			}
+			$sql .= '?';
+			push @whereDirectiveValues, $_;
+			$first = 0;
 		}
-		$sql .= '?';
-		push @whereDirectiveValues, $_;
-		$first = 0;
+		$sql .= ') ';
+		
+		if($va_pref) {
+			$sql .= 'JOIN albums ON contributor_album.album = albums.id ';
+			push @whereDirectives, '(albums.compilation IS NULL OR albums.compilation = 0)';
+		}
 	}
-	$sql .= ') ';
 
 	my $order_by = undef;
 	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
