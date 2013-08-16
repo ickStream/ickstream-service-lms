@@ -10,3 +10,14 @@ SETUP_PLUGIN_ICKSTREAM_GROUP
 SETUP_PLUGIN_ICKSTREAM_GROUP_DESC
 	EN	The ickStream plugin makes the Logitech Media Server library available to other ickStream devices.
 
+PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST
+	EN	Sort albums for artist
+
+PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_DESC
+	EN	Sort albums for artist
+	
+PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_TITLE
+	EN	by title
+
+PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_YEAR_TITLE
+	EN	by year, title

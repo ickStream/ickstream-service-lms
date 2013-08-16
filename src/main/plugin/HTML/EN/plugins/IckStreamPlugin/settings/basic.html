@@ -1,0 +1,12 @@
+[% PROCESS settings/header.html %]
+
+        [% WRAPPER setting title="PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST" desc="PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_DESC"%]
+                <select class="stdedit" name="pref_orderAlbumsForArtist" id="orderAlbumsForArtist">
+
+                        <option [% IF prefs.pref_orderAlbumsForArtist == 'by_title' %]selected [% END %]value="by_title">[% 'PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_TITLE' | string %]</option>
+                        <option [% IF prefs.pref_orderAlbumsForArtist == 'by_year_title' %]selected [% END %]value="by_year_title">[% 'PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_YEAR_TITLE' | string %]</option>
+                
+                </select>
+        [% END %]
+
+[% PROCESS settings/footer.html %]

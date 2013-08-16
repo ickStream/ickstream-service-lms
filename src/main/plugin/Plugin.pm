@@ -43,6 +43,7 @@ use HTTP::Status qw(RC_MOVED_TEMPORARILY RC_NOT_FOUND);
 use Slim::Utils::Compress;
 use POSIX qw(floor);
 
+use Plugins::IckStreamPlugin::Settings;
 use Plugins::IckStreamPlugin::Server;
 
 my $log = Slim::Utils::Log->addLogCategory({
@@ -54,7 +55,9 @@ my $log = Slim::Utils::Log->addLogCategory({
 my $prefs = preferences('plugin.ickstream');
 my $serverPrefs = preferences('server');
 
-$prefs->init({ port => '9997' });
+$prefs->migrate( 1, sub {
+	$prefs->set('orderAlbumsForArtist', 'by_title');
+});
 
 # this holds a context for each connection, to enable asynchronous commands as well
 # as subscriptions.
@@ -76,7 +79,7 @@ sub initPlugin {
 	my $class = shift;
 
 	my $self = $class->SUPER::initPlugin(@_);
-
+	Plugins::IckStreamPlugin::Settings->new;
 	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServer,$class);
 }
 
@@ -870,9 +873,26 @@ sub findAlbums {
 		$sql .= 'JOIN contributors on contributors.id = albums.contributor ';
 
 		$sql .= 'JOIN contributor_album ON contributor_album.album = albums.id ';
+		
+		$sql .= ' AND contributor_album.role IN (?, ?, ?';
+		push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('ARTIST');
+		push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('TRACKARTIST');
+		push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('ALBUMARTIST');
+		foreach (Slim::Schema::Contributor->contributorRoles) {
+			if ($serverPrefs->get(lc($_) . 'InArtists')) {
+				$sql .= ', ?';
+				push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole($_);
+			}
+		}
+		$sql .= ') ';
+
 		push @whereDirectives, 'contributor_album.contributor=?';
 		push @whereDirectiveValues, getInternalId($reqParams->{'artistId'});
-		$order_by = "albums.year desc, albums.titlesort $collate, albums.disc";
+		if($prefs->get('orderAlbumsForArtist') eq 'by_year_title') {
+			$order_by = "albums.year desc, albums.titlesort $collate, albums.disc";
+		}else {
+			$order_by = "albums.titlesort $collate, albums.disc";
+		}
 	}else {
 		$sql .= 'JOIN contributors on contributors.id = albums.contributor ';
 		$order_by = "albums.titlesort $collate, albums.disc";
@@ -1033,13 +1053,26 @@ sub findArtists {
 
 	my @items = ();
 	
-	my $sql = 'SELECT contributors.id,contributors.name,contributors.namesort FROM contributors JOIN albums ON albums.contributor=contributors.id ';
+	my @whereDirectives = ();
+	my @whereDirectiveValues = ();
+	my $sql = 'SELECT contributors.id,contributors.name,contributors.namesort FROM contributors JOIN contributor_album ON contributors.id=contributor_album.contributor ';
+	$sql .= ' AND contributor_album.role IN (';
+	my $roles = Slim::Schema->artistOnlyRoles || [];
+	my $first = 1;
+	foreach (@{$roles}) {
+		if(!$first) {
+			$sql .= ', ';
+		}
+		$sql .= '?';
+		push @whereDirectiveValues, $_;
+		$first = 0;
+	}
+	$sql .= ') ';
+
 	my $order_by = undef;
 	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
 	$order_by = "contributors.namesort $collate";
 
-	my @whereDirectives = ();
-	my @whereDirectiveValues = ();
 	my @whereSearchDirectives = ();
 	my @whereSearchDirectiveValues = ();
 	if(exists($reqParams->{'search'})) {
