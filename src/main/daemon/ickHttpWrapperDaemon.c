@@ -13,9 +13,10 @@ char* wrapperURL = NULL;
 char wrapperIP[16];
 int wrapperPort = 80;
 char wrapperPath[1024];
+char* wrapperAuthorization = NULL;
 int bShutdown = 0;
 
-char* httpRequest(const char* ip, int port, const char* path, const char* requestData)
+char* httpRequest(const char* ip, int port, const char* path, const char* authorization, const char* requestData)
 {
 	int SIZE = 1023;
 	char buffer[SIZE+1];
@@ -51,13 +52,20 @@ char* httpRequest(const char* ip, int port, const char* path, const char* reques
 		fprintf(stderr, "Fail to connect to socket: %d\n",errno);
 		goto httpRequest_end;
 	}
-	char *requestHeader = "POST /%s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ickHttpWrapperDaemon/1.0\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
+	char *requestHeader;
 	const int CONTENT_LENGTH_SPACE = 10; // just allocate enough
-	request = (char*)malloc(strlen(requestHeader)+strlen(ip)+strlen(path)+CONTENT_LENGTH_SPACE+strlen(requestData)-8+1);
-	sprintf(request,requestHeader,path,ip,strlen(requestData),requestData);
+	if(authorization != NULL) {
+		requestHeader = "POST /%s HTTP/1.0\r\nHost: %s\r\nAuthorization: Basic %s\r\nX-Scanner: 1\r\nUser-Agent: ickHttpWrapperDaemon/1.0\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
+		request = (char*)malloc(strlen(requestHeader)+strlen(authorization)+strlen(ip)+strlen(path)+CONTENT_LENGTH_SPACE+strlen(requestData)-8+1+23);
+		sprintf(request,requestHeader,path,ip,authorization,strlen(requestData),requestData);
+	}else {
+		requestHeader = "POST /%s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ickHttpWrapperDaemon/1.0\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
+		request = (char*)malloc(strlen(requestHeader)+strlen(ip)+strlen(path)+CONTENT_LENGTH_SPACE+strlen(requestData)-8+1);
+		sprintf(request,requestHeader,path,ip,strlen(requestData),requestData);
+	}
 	int sent = 0;
 	while(sent < strlen(request)) {
-		//printf("Sending request: \n%s\n",request);
+		printf("Sending request: \n%s\n",request);
 		int bytes_sent = send(server_socket, request, strlen(request), 0);
 		if(bytes_sent < 0) {
 			fprintf(stderr, "Error when sending request data: %d\n",bytes_sent);
@@ -110,7 +118,7 @@ httpRequest_end:
 void onMessage(const char * szSourceDeviceId, const char * message, size_t messageLength, enum ickMessage_communicationstate state, ickDeviceServicetype_t service_type, const char * szTargetDeviceId)
 {
 	printf("From %s: %s\n",szSourceDeviceId, message);
-	char* response = httpRequest(wrapperIP, wrapperPort, wrapperPath,message);
+	char* response = httpRequest(wrapperIP, wrapperPort, wrapperPath,wrapperAuthorization, message);
     if( response ) {
         printf("To %s: %s\n",szSourceDeviceId, response);
     	if(ickDeviceSendMsg(szSourceDeviceId, response, strlen(response)) != ICKMESSAGE_SUCCESS) {
@@ -137,7 +145,7 @@ static void shutdownHandler( int sig, siginfo_t *siginfo, void *context )
 
 int main( int argc, char *argv[] )
 {
-	if(argc != 6) {
+	if(argc != 6 && argc != 7) {
 		printf("Usage: %s IP-address deviceId deviceName wrapperURL logFile\n",argv[0]);
 		return 0;
 	}
@@ -146,6 +154,9 @@ int main( int argc, char *argv[] )
 	char* deviceName = argv[3];
 	wrapperURL = argv[4];
 	char* logFile = argv[5];
+	if(argc == 7) {
+		wrapperAuthorization = argv[6];
+	}
 	
     char host[100];
 	memset(wrapperPath, 0, 1024);

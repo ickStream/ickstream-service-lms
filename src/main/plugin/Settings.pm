@@ -30,8 +30,19 @@ use strict;
 use base qw(Slim::Web::Settings);
 
 use Slim::Utils::Prefs;
+use Crypt::Tea;
 
 my $prefs = preferences('plugin.ickstream');
+my $serverPrefs = preferences('server');
+my $KEY = undef;
+
+sub new {
+        my $class = shift;
+        my $plugin = shift;
+
+		$KEY = Slim::Utils::PluginManager->dataForPlugin($plugin)->{'id'};
+        $class->SUPER::new();
+}
 
 sub name {
 	return Slim::Web::HTTP::CSRF->protectName('ICKSTREAM');
@@ -48,9 +59,21 @@ sub prefs {
 sub handler {
 	my ($class, $client, $params) = @_;
 
-	my $ret = $class->SUPER::handler($client, $params);
-
-	return $ret;
+	if ($serverPrefs->get('authorize')) {
+		$params->{'authorize'} = 1
+	}
+	
+	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
+		my $val = $params->{'pref_password'};
+		if ($val ne $params->{'pref_password_repeat'}) {
+			$params->{'warning'} .= Slim::Utils::Strings::string('SETUP_PASSWORD_MISMATCH') . ' ';
+		}else {
+			if(Crypt::Tea::decrypt($prefs->get('password'),$KEY) ne $params->{'pref_password'}) {
+				$prefs->set('password',Crypt::Tea::encrypt($params->{'pref_password'},$KEY));
+			}
+		}
+	}
+	return $class->SUPER::handler($client, $params);
 }
 
 1;

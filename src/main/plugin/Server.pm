@@ -32,6 +32,7 @@ use Tie::Cache::LRU;
 use File::Spec::Functions;
 use JSON::XS::VersionOneAndTwo;
 use UUID::Tiny;
+use MIME::Base64;
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -80,34 +81,48 @@ sub start {
 	if(!$log->is_debug()) {
 	    $serverLog = catdir("/dev/null");
 	}
+	$log->debug("Logging daemon output to: $serverLog");
 
-	my $endpoint;
+	my $endpoint = "http://localhost:".$sprefs->get('httpport')."/plugins/IckStreamPlugin/jsonrpc";
+	$log->debug("Using LMS at: $endpoint");
+
+	my $authorization = undef;
 	if ($sprefs->get('authorize')) {
-		$endpoint = "http://".$sprefs->get('username').":".sprefs->get('password')."\@localhost:".$sprefs->{'httpport'}."/plugins/IckStreamPlugin/jsonrpc";
-	}else {
-		$endpoint = "http://localhost:".$sprefs->get('httpport')."/plugins/IckStreamPlugin/jsonrpc";
+		$log->debug("Calculating authorization token");
+		$authorization = MIME::Base64::encode($sprefs->get('username').":".$sprefs->get('password'),'');
+		$log->debug("Calculated authorization token");
 	}
 
 	my $serverName = $sprefs->get('libraryname');
 	if(!defined($serverName) || $serverName eq '') {
 		$serverName = Slim::Utils::Network::hostName();
 	}
+	$log->debug("With name: $serverName");
+
 	my $serverUUID = $prefs->get('uuid');
 	if(!defined($serverUUID)) {
+		$log->debug("No ickStream id created, creating a new one...");
 		$serverUUID = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
 		$prefs->set('uuid',$serverUUID);
 	}
+	$log->debug("Using ickStream identity: $serverUUID");
+
     my $serverIP = Slim::Utils::IPDetect::IP();
     if(!$serverIP) {
-        log->error("Can't detect IP address");
+        $log->error("Can't detect IP address");
         return;
     }
+	$log->debug("Local IP-address: $serverIP");
 
 	my @cmd = ($serverPath, $serverIP, $serverUUID, $serverName, $endpoint, $serverLog);
-
 	$log->info("Starting server");
 
 	$log->debug("cmdline: ", join(' ', @cmd));
+
+	if(defined($authorization)) {
+		$log->debug("Adding authorization token");
+		push @cmd,$authorization;
+	}
 
 	$server = Proc::Background->new({'die_upon_destroy' => 1}, @cmd);
 

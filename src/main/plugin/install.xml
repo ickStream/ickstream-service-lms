@@ -1,6 +1,7 @@
 <?xml version='1.0' standalone='yes'?>
 <extension>
     <name>PLUGIN_ICKSTREAM</name>
+    <id>BBDBC1D1-E0E5-4545-848B-7EA70A2B0D6D</id>
     <creator>ickStream GmbH</creator>
     <defaultState>enabled</defaultState>
     <description>SETUP_PLUGIN_ICKSTREAM_GROUP_DESC</description>

@@ -21,3 +21,12 @@ PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_TITLE
 
 PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_YEAR_TITLE
 	EN	by year, title
+
+PLUGIN_ICKSTREAM_LMS_PASSWORD
+	EN	Password
+
+PLUGIN_ICKSTREAM_LMS_PASSWORD_DESC
+	EN	Password which you have configured for LMS. Please note that when using ickStream on LMS with password the LMS password will be sent in clear text on local network in current version of this plugin.
+
+PLUGIN_ICKSTREAM_LMS_PASSWORD_REPEAT
+	EN	Confirm Password

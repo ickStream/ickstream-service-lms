@@ -42,9 +42,12 @@ use Slim::Web::HTTP;
 use HTTP::Status qw(RC_MOVED_TEMPORARILY RC_NOT_FOUND);
 use Slim::Utils::Compress;
 use POSIX qw(floor);
+use Crypt::Tea;
 
 use Plugins::IckStreamPlugin::Settings;
 use Plugins::IckStreamPlugin::Server;
+
+my $KEY = undef;
 
 my $log = Slim::Utils::Log->addLogCategory({
 	'category'     => 'plugin.ickstream',
@@ -79,7 +82,9 @@ sub initPlugin {
 	my $class = shift;
 
 	my $self = $class->SUPER::initPlugin(@_);
-	Plugins::IckStreamPlugin::Settings->new;
+	$KEY = Slim::Utils::PluginManager->dataForPlugin($class)->{'id'};
+	
+	Plugins::IckStreamPlugin::Settings->new($class);
 	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServer,$class);
 }
 
@@ -167,6 +172,7 @@ sub handleStream {
 		my $id;
 		$sth->bind_col(1,\$id);
 		if ($sth->fetch) {
+			$sth->finish();
 			$log->debug("Redirect to /music/$id/download");
 			my $serverAddress = Slim::Utils::Network::serverAddr();
 			($serverAddress) = split /:/, $serverAddress;
@@ -177,6 +183,7 @@ sub handleStream {
 		    Slim::Web::HTTP::closeHTTPSocket($httpClient);
 		    return;
 		}
+		$sth->finish();
 	}
 	$httpResponse->code(RC_NOT_FOUND);
     $httpResponse->content_type('text/html');
@@ -714,6 +721,11 @@ sub getServiceInformation {
 	my $serverAddress = Slim::Utils::Network::serverAddr();
 	($serverAddress) = split /:/, $serverAddress;
 	
+	if ($serverPrefs->get('authorize')) {
+		my $password = Crypt::Tea::decrypt($prefs->get('password'),$KEY);
+		$serverAddress = $serverPrefs->get('username').":".$password."@".$serverAddress;
+	}
+
 	$serverAddress .= ":" . $serverPrefs->get('httpport');
 
 	my $result = {
