@@ -1937,6 +1937,20 @@ sub getNextDynamicPlaylistTracks {
 				});
 			}
 			$items = queryNextDynamicPlaylistTracksFromPlaylist($count, $selectionParameters->{'data'});
+		}elsif($type eq 'RANDOM_FOR_CATEGORY') {
+			if(!defined($selectionParameters->{'data'})) {
+				requestWrite(undef,$context->{'httpClient'}, $context, {
+					'code' => -32602,
+					'message' => 'Missing parameter: selectionParameters.data'
+				});
+			}
+			if(!defined($selectionParameters->{'data'}->{'category'}) && !defined($selectionParameters->{'data'}->{'categoryId'})) {
+				requestWrite(undef,$context->{'httpClient'}, $context, {
+					'code' => -32602,
+					'message' => 'Missing parameter: selectionParameters.data.category or selectionParameters.data.categoryId'
+				});
+			}
+			$items = queryNextDynamicPlaylistTracksFromCategory($count, $selectionParameters->{'data'});
 		}
 			
 		my $result;
@@ -2039,6 +2053,35 @@ sub queryNextDynamicPlaylistTracksFromPlaylist {
 		my $dbh = Slim::Schema->dbh;
 		$sth = $dbh->prepare_cached($sql);
 		$sth->execute(($playlistName));
+	}
+
+	if(defined($sth)) {
+		my $items = processTrackResult($sth,undef);
+		return $items;
+	}else {
+		return undef;
+	}
+}
+
+sub queryNextDynamicPlaylistTracksFromCategory {
+	my $count = shift;
+	my $parameters = shift;
+	
+	
+	my $sql;
+	my $sth = undef;
+	my $categoryId = undef;
+	if($parameters->{'categoryId'} && getInternalId($parameters->{'categoryId'})) {
+		$categoryId = getInternalId($parameters->{'categoryId'});
+	}elsif($parameters->{'category'}) {
+		$categoryId = $parameters->{'category'};
+	}
+	if(defined($categoryId)) {
+		$sql = 'SELECT tracks.id,tracks.url,tracks.urlmd5,tracks.samplerate,tracks.samplesize,tracks.channels,tracks.tracknum, tracks.title,tracks.titlesort,tracks.coverid,tracks.year,tracks.disc,tracks.secs,tracks.content_type,albums.id,albums.title,albums.year,group_concat(contributors.id,"|"), group_concat(contributors.name,"|") FROM tracks JOIN albums on albums.id=tracks.album JOIN contributor_track as ct on ct.track=tracks.id and ct.role in (1,5) JOIN contributors on ct.contributor=contributors.id JOIN genre_track on genre_track.track=tracks.id JOIN genres on genres.id=genre_track.genre WHERE genres.name=? GROUP BY tracks.id ORDER BY random() LIMIT 0,'.$count;
+
+		my $dbh = Slim::Schema->dbh;
+		$sth = $dbh->prepare_cached($sql);
+		$sth->execute(($categoryId));
 	}
 
 	if(defined($sth)) {
