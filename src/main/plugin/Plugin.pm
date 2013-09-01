@@ -411,17 +411,27 @@ sub getProtocolDescription {
 
 	my @contexts = ();
 
+	my $genreRequests = {
+					'type' => 'category',
+					'parameters' => [
+						['contextId','type']
+					],
+				};
+
 	my $artistRequests = {
 					'type' => 'artist',
 					'parameters' => [
-						['contextId','type']
+						['contextId','type'],
+						['contextId','type','categoryId']
 					],
 				};
 	my $albumRequests = {
 					'type' => 'album',
 					'parameters' => [
 						['contextId','type'],
-						['contextId','type','artistId']
+						['contextId','type','artistId'],
+						['contextId','type','categoryId'],
+						['contextId','type','categoryId','artistId'],
 					],
 				};
 
@@ -446,6 +456,7 @@ sub getProtocolDescription {
 			'contextId' => 'myMusic',
 			'name' => 'My Music',
 			'supportedRequests' => [
+				$genreRequests,
 				$artistRequests,
 				$playlistRequests,
 				$albumRequests,
@@ -483,10 +494,21 @@ sub getProtocolDescription {
 	
 	push @contexts,$myMusicFolderContext;
 
+	my $myMusicGenresContext = {
+			'contextId' => 'myMusicGenres',
+			'name' => 'Genres ('.$serverName.')',
+			'supportedRequests' => [
+				$genreRequests
+			]
+		};
+	
+	push @contexts,$myMusicGenresContext;
+
 	my $artistSearchRequests = {
 		'type' => 'artist',
 		'parameters' => [
-			['contextId','type','search']
+			['contextId','type','search'],
+			['contextId','type','categoryId']
 		]
 	};
 	my $playlistSearchRequests = {
@@ -499,7 +521,9 @@ sub getProtocolDescription {
 		'type' => 'album',
 		'parameters' => [
 			['contextId','type','search'],
-			['contextId','type','artistId']
+			['contextId','type','artistId'],
+			['contextId','type','categoryId'],
+			['contextId','type','categoryId','artistId']
 		]
 	};
 	my $trackSearchRequests = {
@@ -508,7 +532,9 @@ sub getProtocolDescription {
 			['contextId','type','search'],
 			['contextId','type','albumId'],
 			['contextId','type','artistId'],
-			['contextId','type','artistId','albumId']
+			['contextId','type','artistId','albumId'],
+			['contextId','type','categoryId'],
+			['contextId','type','categoryId','artistId']
 		]
 	};
 
@@ -644,6 +670,8 @@ sub getItem {
 				$item = getPlaylist($1);
 			}elsif($reqParams->{'itemId'} =~ /.*\:folder\:(.*)$/) {
 				$item = getFolder($1);
+			}elsif($reqParams->{'itemId'} =~ /^.*\:category\:(.*)$/) {
+				$item = getCategory($1);
 			}
 		}
 	
@@ -678,6 +706,8 @@ sub findItems {
 			$items = findArtists($reqParams,$offset,$count);
 		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'track') {
 			$items = findTracks($reqParams,$offset,$count);
+		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'category') {
+			$items = findCategories($reqParams,$offset,$count);
 		} elsif(exists($reqParams->{'contextId'}) && $reqParams->{'contextId'} eq 'myMusicFolder' && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu')) {
 			$items = findFolders($reqParams,$offset,$count);
 		}
@@ -831,6 +861,111 @@ sub requestWrite {
         generateJSONResponse($context, $result, $error);
 }
 
+sub getCategory {
+	my $genreId = shift;
+
+	my $sql = 'SELECT genres.id,genres.name,genres.namesort FROM genres ';
+	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
+	my $order_by = "genres.namesort $collate";
+
+	my @whereDirectives = ();
+	my @whereDirectiveValues = ();
+
+	push @whereDirectives,'genres.name=?';
+	push @whereDirectiveValues,$genreId;
+	
+	if(scalar(@whereDirectives)>0) {
+		$sql .= 'WHERE ';
+		my $whereDirective;
+		if(scalar(@whereDirectives)>0) {
+			$whereDirective = join(' AND ', @whereDirectives);
+		}
+		$sql .= $whereDirective . ' ';
+	}
+	$sql .= "GROUP BY genres.id ORDER BY $order_by";
+	$sql .= " LIMIT 0, 1";
+
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$log->debug("Executing $sql");
+	$log->debug("Using values: ".join(',',@whereDirectiveValues));
+	$sth->execute(@whereDirectiveValues);
+
+	my $items = processCategoryResult($sth,$order_by);
+	my $item = pop @$items;
+	return $item;
+}
+
+sub findCategories {
+	my $reqParams = shift;
+	my $offset = shift;
+	my $count = shift;
+	
+	my @items = ();
+	
+	my @whereDirectives = ();
+	my @whereDirectiveValues = ();
+	my @whereSearchDirectives = ();
+	my @whereSearchDirectiveValues = ();
+	my $sql = 'SELECT genres.id,genres.name,genres.namesort FROM genres ';
+	my $order_by = undef;
+	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
+	$order_by = "genres.namesort $collate";
+
+	$sql .= "GROUP BY genres.id ORDER BY $order_by";
+	if(defined($count)) {
+		$sql .= " LIMIT $offset, $count";
+	}
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$log->debug("Executing $sql");
+	$log->debug("Using values: ".join(',',@whereDirectiveValues));
+	$sth->execute(@whereDirectiveValues);
+
+	return processCategoryResult($sth,$order_by);
+}
+
+sub processCategoryResult {
+	my $sth = shift;
+	my $order_by = shift;
+		
+	my $serverPrefix = getServerId();
+	my $collate = Slim::Utils::OSDetect->getOS()->sqlHelperClass()->collate();
+
+	my @items = ();
+	
+	my $genreId;
+	my $genreName;
+	my $genreSortName;
+	
+	$sth->bind_col(1,\$genreId);
+	$sth->bind_col(2,\$genreName);
+	$sth->bind_col(3,\$genreSortName);
+	
+	while ($sth->fetch) {
+		utf8::decode($genreName);
+		utf8::decode($genreSortName);
+		
+		my $item = {
+			'id' => "$serverPrefix:category:$genreName",
+			'text' => $genreName,
+			'sortText' => $genreSortName,
+			'type' => "category",
+			'itemAttributes' => {
+				'id' => "$serverPrefix:category:$genreName",
+				'categoryType' => 'genre',
+				'name' => $genreName
+			}
+		};
+		
+		$item->{'sortText'} = $genreSortName;
+		
+		push @items,$item;
+	}
+	$sth->finish();
+	return \@items;		
+}
+
 sub getAlbum {
 	my $albumId = shift;
 
@@ -909,6 +1044,16 @@ sub findAlbums {
 		$sql .= 'JOIN contributors on contributors.id = albums.contributor ';
 		$order_by = "albums.titlesort $collate, albums.disc";
 	}
+	
+	if(exists($reqParams->{'categoryId'})) {
+		$sql .= 'JOIN tracks on tracks.album = albums.id ';
+		$sql .= 'JOIN genre_track on genre_track.track = tracks.id ';
+		$sql .= 'JOIN genres on genres.id = genre_track.genre ';
+
+		push @whereDirectives, 'genres.name=? ';
+		push @whereDirectiveValues, getInternalId($reqParams->{'categoryId'});
+	}
+	
 	if(exists($reqParams->{'search'})) {
 		my $searchStrings = Slim::Utils::Text::searchStringSplit($reqParams->{'search'});
 		if( ref $searchStrings->[0] eq 'ARRAY') {
@@ -1088,6 +1233,16 @@ sub findArtists {
 			$sql .= 'JOIN albums ON contributor_album.album = albums.id ';
 			push @whereDirectives, '(albums.compilation IS NULL OR albums.compilation = 0)';
 		}
+	}
+
+	if(exists($reqParams->{'categoryId'})) {
+		$sql .= 'JOIN contributor_track on contributor_track.contributor=contributor_album.contributor ';
+		$sql .= 'JOIN tracks on tracks.id = contributor_track.track ';
+		$sql .= 'JOIN genre_track on genre_track.track = tracks.id ';
+		$sql .= 'JOIN genres on genres.id = genre_track.genre ';
+
+		push @whereDirectives, 'genres.name=? ';
+		push @whereDirectiveValues, getInternalId($reqParams->{'categoryId'});
 	}
 
 	my $order_by = undef;
@@ -1382,6 +1537,13 @@ sub findTracks {
 		$sql .= 'JOIN contributor_track ON contributor_track.track = tracks.id ';
 		push @whereDirectives, 'contributor_track.contributor=?';
 		push @whereDirectiveValues, getInternalId($reqParams->{'artistId'});
+	}
+	if(exists($reqParams->{'categoryId'})) {
+		$sql .= 'JOIN genre_track on genre_track.track = tracks.id ';
+		$sql .= 'JOIN genres on genres.id = genre_track.genre ';
+
+		push @whereDirectives, 'genres.name=? ';
+		push @whereDirectiveValues, getInternalId($reqParams->{'categoryId'});
 	}
 	if(exists($reqParams->{'albumId'})) {
 		push @whereDirectives, 'tracks.album=?';
