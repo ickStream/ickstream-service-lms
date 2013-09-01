@@ -1650,9 +1650,9 @@ sub processTrackResult {
 		utf8::decode($albumTitle);
 		utf8::decode($contributorNames);
 			
-		my $sortText = (defined($trackDisc)?($trackDisc<10?"0".$trackDisc."-":$trackDisc."-"):"").(defined($trackNumber)?($trackNumber<10?"0".$trackNumber:$trackNumber):"").". ".$trackSortTitle;
+		my $sortText = (defined($trackDisc)?($trackDisc<10?"0".$trackDisc."-":$trackDisc."-"):"").(defined($trackNumber)?($trackNumber<10?"0".$trackNumber:$trackNumber):"");
 		my $displayText = (defined($trackDisc)?$trackDisc."-":"").(defined($trackNumber)?$trackNumber:"").". ".$trackTitle;
-		if($requestedAlbumId) {
+		if(!$requestedAlbumId) {
 			$sortText = $trackSortTitle;
 			$displayText = $trackTitle;
 		}
