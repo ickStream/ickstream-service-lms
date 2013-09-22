@@ -88,13 +88,23 @@
                         </goals>
                     </execution>
                     <execution>
-                        <id>gitversion</id>
+                        <id>gitversion-ickstream-p2p</id>
                         <goals>
                             <goal>create</goal>
                         </goals>
                         <configuration>
-                            <scmDirectory>${basedir}/ickp2p</scmDirectory>
+                            <scmDirectory>${basedir}/ickstream-p2p</scmDirectory>
                             <buildNumberPropertyName>ickp2pVersion</buildNumberPropertyName>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>gitversion-libwebsockets</id>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                        <configuration>
+                            <scmDirectory>${basedir}/libwebsockets</scmDirectory>
+                            <buildNumberPropertyName>libwebsocketsVersion</buildNumberPropertyName>
                         </configuration>
                     </execution>
                 </executions>
@@ -200,9 +210,46 @@
                                     <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <workingDirectory>${basedir}/ickp2p</workingDirectory>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-libwebsockets-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>${basedir}/src/main/daemon/buildlibwebsockets32</executable>
+                                    <commandlineArgs>${project.build.directory}/libwebsockets32 ${basedir}/libwebsockets ${basedir}/ickstream-p2p</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-ickp2p-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>debug LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" INCLUDES="-I${basedir}/libwebsockets/lib"
+                                    </commandlineArgs>
                                 </configuration>
                             </execution>
                             <execution>
@@ -214,7 +261,7 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86
+                                    <commandlineArgs>all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -225,9 +272,46 @@
                                     <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <workingDirectory>${basedir}/ickp2p</workingDirectory>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-native-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-libwebsockets-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>${basedir}/src/main/daemon/buildlibwebsockets64</executable>
+                                    <commandlineArgs>${project.build.directory}/libwebsockets64 ${basedir}/libwebsockets ${basedir}/ickstream-p2p</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-ickp2p-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>debug LDFLAGS="-m64" CFLAGS="-m64 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" INCLUDES="-I${basedir}/libwebsockets/lib"
+                                    </commandlineArgs>
                                 </configuration>
                             </execution>
                             <execution>
@@ -239,7 +323,7 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86_64
+                                    <commandlineArgs>all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86_64
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -270,9 +354,46 @@
                                     <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <workingDirectory>${basedir}/ickp2p</workingDirectory>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-libwebsockets-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>${basedir}/src/main/daemon/buildlibwebsockets</executable>
+                                    <commandlineArgs>${project.build.directory}/libwebsockets ${basedir}/libwebsockets ${basedir}/ickstream-p2p</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-ickp2p-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>debug CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" INCLUDES="-I${basedir}/libwebsockets/lib"
+                                    </commandlineArgs>
                                 </configuration>
                             </execution>
                             <execution>
@@ -284,7 +405,7 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabihf
+                                    <commandlineArgs>all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabihf
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -315,9 +436,46 @@
                                     <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <workingDirectory>${basedir}/ickp2p</workingDirectory>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-libwebsockets-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>${basedir}/src/main/daemon/buildlibwebsockets</executable>
+                                    <commandlineArgs>${project.build.directory}/libwebsockets ${basedir}/libwebsockets ${basedir}/ickstream-p2p</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-ickp2p-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>debug CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" INCLUDES="-I${basedir}/libwebsockets/lib"
+                                    </commandlineArgs>
                                 </configuration>
                             </execution>
                             <execution>
@@ -329,7 +487,7 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabi
+                                    <commandlineArgs>all CFLAGS="-DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabi
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -359,9 +517,46 @@
                                     <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <workingDirectory>${basedir}/ickp2p</workingDirectory>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-libwebsockets-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>${basedir}/src/main/daemon/buildlibwebsockets32</executable>
+                                    <commandlineArgs>${project.build.directory}/libwebsockets32 ${basedir}/libwebsockets ${basedir}/ickstream-p2p</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-ickp2p-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>debug LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" INCLUDES="-I${basedir}/libwebsockets/lib"
+                                    </commandlineArgs>
                                 </configuration>
                             </execution>
                             <execution>
@@ -373,7 +568,7 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86
+                                    <commandlineArgs>all LDFLAGS="-m32" CFLAGS="-m32 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -384,9 +579,46 @@
                                     <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <workingDirectory>${basedir}/ickp2p</workingDirectory>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-native-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-libwebsockets-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>${basedir}/src/main/daemon/buildlibwebsockets64</executable>
+                                    <commandlineArgs>${project.build.directory}/libwebsockets64 ${basedir}/libwebsockets ${basedir}/ickstream-p2p</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-native-ickp2p-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/ickstream-p2p</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>debug LDFLAGS="-m64" CFLAGS="-m64 -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" INCLUDES="-I${basedir}/libwebsockets/lib"
+                                    </commandlineArgs>
                                 </configuration>
                             </execution>
                             <execution>
@@ -398,7 +630,7 @@
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
-                                    <commandlineArgs>cleanall all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86_64
+                                    <commandlineArgs>all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86_64
                                     </commandlineArgs>
                                 </configuration>
                             </execution>

@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "ickDiscovery.h"
+#include "ickP2p.h"
 
 char* wrapperURL = NULL;
 char wrapperIP[16];
@@ -15,6 +15,7 @@ int wrapperPort = 80;
 char wrapperPath[1024];
 char* wrapperAuthorization = NULL;
 int bShutdown = 0;
+ickP2pContext_t* g_context = NULL;
 
 char* httpRequest(const char* ip, int port, const char* path, const char* authorization, const char* requestData)
 {
@@ -115,13 +116,14 @@ httpRequest_end:
 	return responseBody;
 }
 
-void onMessage(const char * szSourceDeviceId, const char * message, size_t messageLength, enum ickMessage_communicationstate state, ickDeviceServicetype_t service_type, const char * szTargetDeviceId)
+void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServicetype_t sourceService, ickP2pServicetype_t targetService, const char* message, size_t messageLength, ickP2pMessageFlag_t mFlags )
 {
 	printf("From %s: %s\n",szSourceDeviceId, message);
 	char* response = httpRequest(wrapperIP, wrapperPort, wrapperPath,wrapperAuthorization, message);
     if( response ) {
         printf("To %s: %s\n",szSourceDeviceId, response);
-    	if(ickDeviceSendMsg(szSourceDeviceId, response, strlen(response)) != ICKMESSAGE_SUCCESS) {
+        ickErrcode_t error = ickP2pSendMsg(ictx,szSourceDeviceId, sourceService,targetService,response, strlen(response));
+        if(error != ICKERR_SUCCESS) {
     		fprintf(stderr,"Failed to send response\n");
     	}
     }
@@ -203,10 +205,28 @@ int main( int argc, char *argv[] )
     printf("- Using port: %d\n",wrapperPort);
     printf("- Using path: /%s\n",wrapperPath);
     
-    ickDeviceRegisterMessageCallback(&onMessage);
-    ickDiscoveryResult_t result = ickInitDiscovery(deviceId, networkAddress,NULL);
-    result = ickDiscoverySetupConfigurationData(deviceName, NULL);
-    result = ickDiscoveryAddService(ICKDEVICE_SERVER_GENERIC);
+	ickErrcode_t error;
+    printf("create(\"%s\",\"%s\",NULL,0,0,%d,%p)\n",deviceName,deviceId,ICKP2P_SERVICE_SERVER_GENERIC,&error);
+	g_context = ickP2pCreate(deviceName,deviceId,NULL,0,0,ICKP2P_SERVICE_SERVER_GENERIC,&error);
+	if(error == ICKERR_SUCCESS) {
+    	error = ickP2pRegisterMessageCallback(g_context, &messageCb);
+    	if(error != ICKERR_SUCCESS) {
+    		printf("ickP2pRegisterMessageCallback failed=%d\n",(int)error);
+    	}
+#ifdef ICK_DEBUG
+	    ickP2pSetHttpDebugging(g_context,1);
+#endif
+		error = ickP2pAddInterface(g_context, networkAddress, NULL);
+    	if(error != ICKERR_SUCCESS) {
+    		printf("ickP2pAddInterface failed=%d\n",(int)error);
+    	}
+    	error = ickP2pResume(g_context);
+    	if(error != ICKERR_SUCCESS) {
+    		printf("ickP2pResume failed=%d\n",(int)error);
+    	}
+		
+	}
+	fflush (stdout);
 
     struct sigaction act;
     memset( &act, 0, sizeof(act) );
@@ -219,7 +239,7 @@ int main( int argc, char *argv[] )
     	sleep(1000);
     }
     printf("Shutting down ickP2P for %s\n",deviceName);
-    ickEndDiscovery(1);
+    ickP2pEnd(g_context,NULL);
     printf("Shutdown ickP2P for %s\n",deviceName);
 	return 1;
 }
