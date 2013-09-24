@@ -118,8 +118,21 @@ httpRequest_end:
 
 void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServicetype_t sourceService, ickP2pServicetype_t targetService, const char* message, size_t messageLength, ickP2pMessageFlag_t mFlags )
 {
-	printf("From %s: %s\n",szSourceDeviceId, message);
-	char* response = httpRequest(wrapperIP, wrapperPort, wrapperPath,wrapperAuthorization, message);
+	char* terminatedMessage = NULL;
+	if(messageLength>0) {
+		terminatedMessage = malloc(messageLength+1);
+		memcpy(terminatedMessage,message,messageLength);
+		terminatedMessage[(int)messageLength]='\0';
+		printf("From %s: %s\n",szSourceDeviceId, terminatedMessage);
+	}else {
+		printf("From %s: %s\n",szSourceDeviceId, message);
+	}
+	char* response = NULL;
+	if(terminatedMessage != NULL) {
+		response = httpRequest(wrapperIP, wrapperPort, wrapperPath,wrapperAuthorization, terminatedMessage);
+	}else {
+		response = httpRequest(wrapperIP, wrapperPort, wrapperPath,wrapperAuthorization, message);
+	}
     if( response ) {
         printf("To %s: %s\n",szSourceDeviceId, response);
         ickErrcode_t error = ickP2pSendMsg(ictx,szSourceDeviceId, sourceService,targetService,response, strlen(response));
@@ -130,6 +143,10 @@ void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServic
 	if(response != NULL) {
 		free(response);
 		response = NULL;
+	}
+	if(terminatedMessage != NULL) {
+		free(terminatedMessage);
+		terminatedMessage = NULL;
 	}
 }
 	
