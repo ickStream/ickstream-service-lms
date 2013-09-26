@@ -127,6 +127,7 @@ void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServic
 	}else {
 		printf("From %s: %s\n",szSourceDeviceId, message);
 	}
+	fflush (stdout);
 	char* response = NULL;
 	if(terminatedMessage != NULL) {
 		response = httpRequest(wrapperIP, wrapperPort, wrapperPath,wrapperAuthorization, terminatedMessage);
@@ -135,7 +136,7 @@ void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServic
 	}
     if( response ) {
         printf("To %s: %s\n",szSourceDeviceId, response);
-        ickErrcode_t error = ickP2pSendMsg(ictx,szSourceDeviceId, sourceService,targetService,response, strlen(response));
+        ickErrcode_t error = ickP2pSendMsg(ictx,szSourceDeviceId, sourceService,ICKP2P_SERVICE_SERVER_GENERIC,response, strlen(response));
         if(error != ICKERR_SUCCESS) {
     		fprintf(stderr,"Failed to send response\n");
     	}
