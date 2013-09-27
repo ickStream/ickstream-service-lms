@@ -66,14 +66,16 @@ char* httpRequest(const char* ip, int port, const char* path, const char* author
 	}
 	int sent = 0;
 	while(sent < strlen(request)) {
-		printf("Sending request: \n%s\n",request);
+		//printf("Forwarding request: ===============\n%s\n==============\n",request);
 		int bytes_sent = send(server_socket, request, strlen(request), 0);
 		if(bytes_sent < 0) {
-			fprintf(stderr, "Error when sending request data: %d\n",bytes_sent);
+			fprintf(stderr, "Error when forwarding request data: %d\n",bytes_sent);
 			goto httpRequest_end;
 		}
 		sent = sent + bytes_sent;
 	}
+	printf("Request successfully sent to perl module via HTTP\n");
+	fflush (stdout);
 
 	//printf("Starting to read data\n");
 	int bytes_received = 0;
@@ -85,9 +87,12 @@ char* httpRequest(const char* ip, int port, const char* path, const char* author
 			memcpy(responseData+total_bytes_received, buffer, bytes_received + 1);
 			total_bytes_received += bytes_received;
 		}else {
-			fprintf(stderr, "Error when reading request data\n");
+			fprintf(stderr, "Error allocating memory for response via HTTP\n");
 			goto httpRequest_end;
 		}
+	}
+	if(bytes_received<0) {
+			fprintf(stderr, "Error reading response via HTTP: %d\n",errno);
 	}
 
 	//printf("Finished reading, total=%d, last=%d\n",total_bytes_received,bytes_received);
@@ -116,6 +121,12 @@ httpRequest_end:
 	return responseBody;
 }
 
+void discoveryCb(ickP2pContext_t *ictx, const char *szDeviceId, ickP2pDeviceState_t change, ickP2pServicetype_t type)
+{
+    printf("DISCOVERY %s type=%d services=%d)\n",szDeviceId,(int)change,(int)type);
+	fflush (stdout);
+}
+
 void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServicetype_t sourceService, ickP2pServicetype_t targetService, const char* message, size_t messageLength, ickP2pMessageFlag_t mFlags )
 {
 	char* terminatedMessage = NULL;
@@ -136,9 +147,10 @@ void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServic
 	}
     if( response ) {
         printf("To %s: %s\n",szSourceDeviceId, response);
+        fflush (stdout);
         ickErrcode_t error = ickP2pSendMsg(ictx,szSourceDeviceId, sourceService,ICKP2P_SERVICE_SERVER_GENERIC,response, strlen(response));
         if(error != ICKERR_SUCCESS) {
-    		fprintf(stderr,"Failed to send response\n");
+    		fprintf(stderr,"Failed to send response=%d\n",(int)error);
     	}
     }
 	if(response != NULL) {
@@ -230,6 +242,10 @@ int main( int argc, char *argv[] )
     	error = ickP2pRegisterMessageCallback(g_context, &messageCb);
     	if(error != ICKERR_SUCCESS) {
     		printf("ickP2pRegisterMessageCallback failed=%d\n",(int)error);
+    	}
+    	error = ickP2pRegisterDiscoveryCallback(g_context, &discoveryCb);
+    	if(error != ICKERR_SUCCESS) {
+    		printf("ickP2pRegisterDiscoveryCallback failed=%d\n",(int)error);
     	}
 #ifdef ICK_DEBUG
 	    ickP2pSetHttpDebugging(g_context,1);
