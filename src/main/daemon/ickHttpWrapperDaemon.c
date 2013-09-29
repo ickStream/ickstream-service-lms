@@ -229,6 +229,13 @@ int main( int argc, char *argv[] )
       dup2(fd2, fileno(stderr));
     }
 
+#ifdef DEBUG
+    printf("ickP2pSetLogLevel(7)\n");
+    ickP2pSetLogging(7,stderr,100);
+#elif ICK_DEBUG
+    ickP2pSetLogging(6,NULL,100);
+#endif
+
     printf("Initializing ickP2P for %s(%s) at %s...\n",deviceName,deviceId,networkAddress);
     printf("Wrapping URL: %s\n",wrapperURL);
     printf("- Using IP-address: %s\n",wrapperIP);
