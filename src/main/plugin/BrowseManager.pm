@@ -50,12 +50,25 @@ my $cloudServiceProtocolEntries = {};
 tie my %cache, 'Tie::Cache::LRU', 10;
 use constant CACHE_TIME => 300;
 
+sub getAccessToken {
+	my $player = shift;
+	
+	if(defined($player)) {
+		my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+		if(defined($playerConfiguration->{'accessToken'})) {
+			return $playerConfiguration->{'accessToken'};
+		}
+	}
+	my $accessToken = $prefs->get('accessToken');
+	return $accessToken;
+}
+
 sub topLevel {
         my ($client, $cb, $args) = @_;
         
         my $params = $args->{params};
         
-		my $accessToken = $prefs->get('accessToken');
+		my $accessToken = getAccessToken($client);
 		
 		if(!defined($accessToken)) {
 			$cb->({items => [{
@@ -124,11 +137,12 @@ sub topLevel {
 }
 
 sub getProtocolDescription {
+	my $client = shift;
 	my $serviceId = shift;
 	my $successCb = shift;
 	my $errorCb = shift;
 	
-	my $accessToken = $prefs->get('accessToken');
+	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
 		&{$errorCb}($serviceId);
 	}
@@ -170,14 +184,14 @@ sub getProtocolDescription {
 sub serviceContextMenu {
 	my ($client, $cb, $args, $serviceId) = @_;
 	
-	my $accessToken = $prefs->get('accessToken');
+	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
 		$cb->({items => [{
                        name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
                        type => 'textarea',
                }]});
 	}else {
-		getProtocolDescription($serviceId,
+		getProtocolDescription($client, $serviceId,
 			sub {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
@@ -260,14 +274,14 @@ sub getNameForType {
 sub serviceTypeMenu {
 	my ($client, $cb, $args, $serviceId, $contextId) = @_;
 
-	my $accessToken = $prefs->get('accessToken');
+	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
 		$cb->({items => [{
                        name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
                        type => 'textarea',
                }]});
 	}else {
-		getProtocolDescription($serviceId,
+		getProtocolDescription($client, $serviceId,
 			sub {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
@@ -330,14 +344,14 @@ sub serviceTypeMenu {
 sub serviceItemMenu {
 	my ($client, $cb, $args, $serviceId, $contextId, $parent) = @_;
 	
-	my $accessToken = $prefs->get('accessToken');
+	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
 		$cb->({items => [{
                        name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
                        type => 'textarea',
                }]});
 	}else {
-		getProtocolDescription($serviceId,
+		getProtocolDescription($client, $serviceId,
 			sub {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
