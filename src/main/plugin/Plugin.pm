@@ -68,10 +68,12 @@ my $serverPrefs = preferences('server');
 
 $prefs->migrate( 1, sub {
 	$prefs->set('orderAlbumsForArtist', 'by_title');
+	1;
 });
 $prefs->migrate( 2, sub {
 	$prefs->set('daemonPort',$serverPrefs->get('httpport')+6);
 	$prefs->set('squeezePlayPlayersEnabled',0);
+	1;
 });
 
 my $nextRequestedLocalServiceId = 2;

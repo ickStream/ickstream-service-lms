@@ -75,6 +75,9 @@ sub handler {
 
 	$params->{'authenticationUrl'} = 'https://api.ickstream.com/ickstream-cloud-core/oauth?redirect_uri='.$serverUrl.'&client_id=C5589EF9-9C28-4556-942A-765E698215F1';
         
+    my $enabledSqueezePlayPlayers = 0;
+    my $disabledSqueezePlayPlayers = 0;
+    
 	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
 		my $val = $params->{'pref_password'};
 		if ($val ne $params->{'pref_password_repeat'}) {
@@ -85,7 +88,33 @@ sub handler {
 			}
 		}
 	}
-	return $class->SUPER::handler($client, $params);
+	if ($params->{'saveSettings'}) {
+		if($params->{'pref_squeezePlayPlayersEnabled'} && !$prefs->get('squeezePlayPlayersEnabled')) {
+			$log->info('Enabling Squeezebox Touch/Radio players');
+			$enabledSqueezePlayPlayers = 1;
+		}elsif(!$params->{'pref_squeezePlayPlayersEnabled'} && $prefs->get('squeezePlayPlayersEnabled')) {
+			$log->info('Disabling Squeezebox Touch/Radio players');
+			$disabledSqueezePlayPlayers = 1;
+		}	
+	}
+	
+	my $result = $class->SUPER::handler($client, $params);
+	if($enabledSqueezePlayPlayers) {
+		my @players = Slim::Player::Client::clients();
+		foreach my $player (@players) {
+			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
+				Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
+			}
+		}
+	}elsif($disabledSqueezePlayPlayers) {
+		my @players = Slim::Player::Client::clients();
+		foreach my $player (@players) {
+			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
+				Plugins::IckStreamPlugin::PlayerManager::uninitializePlayer($player);
+			}
+		}
+	}
+	return $result;
 }
 
 sub handleAuthenticationFinished {
