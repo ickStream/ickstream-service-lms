@@ -29,11 +29,17 @@ package Plugins::IckStreamPlugin::Settings;
 use strict;
 use base qw(Slim::Web::Settings);
 
+use Slim::Utils::Log;
 use Slim::Utils::Prefs;
+use JSON::XS::VersionOneAndTwo;
+use Plugins::IckStreamPlugin::PlayerManager;
+
 use Crypt::Tea;
 
+my $log = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
 my $serverPrefs = preferences('server');
+
 my $KEY = undef;
 
 sub new {
@@ -53,7 +59,7 @@ sub page {
 }
 
 sub prefs {
-	return ($prefs, 'orderAlbumsForArtist');
+	return ($prefs, 'orderAlbumsForArtist', 'daemonPort', 'squeezePlayPlayersEnabled');
 }
 
 sub handler {
@@ -63,6 +69,12 @@ sub handler {
 		$params->{'authorize'} = 1
 	}
 	
+	my $serverIP = Slim::Utils::IPDetect::IP();
+	my $port = $serverPrefs->get('httpport');
+	my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
+
+	$params->{'authenticationUrl'} = 'https://api.ickstream.com/ickstream-cloud-core/oauth?redirect_uri='.$serverUrl.'&client_id=C5589EF9-9C28-4556-942A-765E698215F1';
+        
 	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
 		my $val = $params->{'pref_password'};
 		if ($val ne $params->{'pref_password_repeat'}) {
@@ -74,6 +86,126 @@ sub handler {
 		}
 	}
 	return $class->SUPER::handler($client, $params);
+}
+
+sub handleAuthenticationFinished {
+    my ($client, $params, $callback, $httpClient, $response) = @_;
+
+	if(defined($params->{'code'})) {
+	    my $serverIP = Slim::Utils::IPDetect::IP();
+	    my $port = $serverPrefs->get('httpport');
+	    my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
+
+		my $httpParams = { timeout => 35 };
+		Slim::Networking::SimpleAsyncHTTP->new(
+			sub {
+				my $http = shift;
+				my $jsonResponse = from_json($http->content);
+				if(defined($jsonResponse->{'access_token'})) {
+					$log->info("Successfully authenticated user");
+					
+					my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+					$log->info("Register LMS as controller device");
+					my $uuid = $prefs->get('controller_uuid');
+					if(!defined($uuid)) {
+						$uuid = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
+						$prefs->set('controller_uuid',$uuid);
+					}
+					my $serverName = $serverPrefs->get('libraryname');
+					if(!defined($serverName) || $serverName eq '') {
+					                $serverName = Slim::Utils::Network::hostName();
+			        }
+					Slim::Networking::SimpleAsyncHTTP->new(
+								sub {
+									my $http = shift;
+									my $jsonResponse = from_json($http->content);
+									if(defined($jsonResponse->{'result'})) {
+										Slim::Networking::SimpleAsyncHTTP->new(
+											sub {
+												my $http = shift;
+												my $jsonResponse = from_json($http->content);
+												if(defined($jsonResponse->{'result'})) {
+													$log->info("LMS device registered successfully, storing access token");
+													my $controllerAccessToken = $jsonResponse->{'result'}->{'accessToken'};
+													$prefs->set('accessToken',$controllerAccessToken);
+													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationSuccess.html', $params);
+													my @players = Slim::Player::Client::clients();
+													foreach my $player (@players) {
+														if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
+															$log->debug("Processing player: ".$player->name());
+															Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player,$controllerAccessToken);
+														}
+													}
+													&{$callback}($client,$params,$output,$httpClient,$response);
+												}else {
+													$log->warn("Failed to register device in cloud: ".Dumper($jsonResponse));
+													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
+													&{$callback}($client,$params,$output,$httpClient,$response);
+												}
+											},
+											sub {
+													$log->warn("Failed to register device in cloud");
+													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
+													&{$callback}($client,$params,$output,$httpClient,$response);
+											},
+											undef
+										)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'result'},to_json({
+											'jsonrpc' => '2.0',
+											'id' => 1,
+											'method' => 'addDevice',
+											'params' => {
+												'address' => $serverIP,
+												'hardwareId' => $serverPrefs->get('server_uuid'),
+												'applicationId' => 'C5589EF9-9C28-4556-942A-765E698215F1'
+											}
+										}));
+									}else {
+										$log->warn("Failed to get device registration token from cloud: ".Dumper($jsonResponse));
+										my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
+										&{$callback}($client,$params,$output,$httpClient,$response);
+									}
+								},
+								sub {
+									$log->warn("Failed to get device registration token from cloud");
+									my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
+									&{$callback}($client,$params,$output,$httpClient,$response);
+								},
+								undef
+							)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'access_token'},to_json({
+								'jsonrpc' => '2.0',
+								'id' => 1,
+								'method' => 'createDeviceRegistrationToken',
+								'params' => {
+									'id' => $uuid,
+									'name' => $serverName,
+									'applicationId' => 'C5589EF9-9C28-4556-942A-765E698215F1'
+								}
+							}));
+				}else {
+					if(defined($jsonResponse->{'error_description'})) {
+						$log->warn("Failed to authenticate: ".$jsonResponse->{'error'}.": ".$jsonResponse->{'error_description'});
+					}else {
+						$log->warn("Failed to authenticate: ".$jsonResponse->{'error'});
+					}
+					my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
+					&{$callback}($client,$params,$output,$httpClient,$response);
+				}
+			},
+			sub {
+				my $http = shift;
+				my $jsonResponse = from_json($http->content);
+				if(defined($jsonResponse->{'error_description'})) {
+					$log->warn("Failed to authenticate: ".$jsonResponse->{'error'}.": ".$jsonResponse->{'error_description'});
+				}else {
+					$log->warn("Failed to authenticate: ".$jsonResponse->{'error'});
+				}
+				my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
+				&{$callback}($client,$params,$output,$httpClient,$response);
+			},
+			$params
+		)->get("https://api.ickstream.com/ickstream-cloud-core/oauth/token?redirect_uri=".$serverUrl."&code=".$params->{'code'},'Content-Type' => 'application/json');
+	}
+	return undef;
 }
 
 1;

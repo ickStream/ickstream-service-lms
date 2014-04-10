@@ -8,6 +8,7 @@
                 
                 </select>
         [% END %]
+        
 
 		[% IF authorize %]
         [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD" desc="PLUGIN_ICKSTREAM_LMS_PASSWORD_DESC" %]
@@ -17,6 +18,18 @@
         [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD_REPEAT" desc="" %]
                 <input type="password" class="stdedit" name="pref_password_repeat" id="password" value="[% prefs.pref_password %]" size="40">
         [% END %]
+        [% END %]
+        [% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT" desc="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT_DESC" %]
+                <input type="text" class="stdedit" name="pref_daemonPort" id="daemonPort" value="[% prefs.pref_daemonPort %]" size="5">
+        [% END %]
+        [% WRAPPER setting title="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS" desc="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS_DESC" %]
+                <select name="pref_squeezePlayPlayersEnabled">
+                        <option value="1" [% IF prefs.squeezePlayPlayersEnabled %]selected[% END %]>[% "ENABLED" | string %]</option>
+                        <option value="0" [% IF NOT prefs.squeezePlayPlayersEnabled %]selected[% END %]>[% "DISABLED" | string %]</option>
+                </select>
+        [% END %]
+        [% IF authenticationUrl %]
+                <a target="_blank" href="[% authenticationUrl %]">[% 'PLUGIN_ICKSTREAM_LOGIN_TO_ICKSTREAM' | string %]</a>
         [% END %]
 
 [% PROCESS settings/footer.html %]

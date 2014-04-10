@@ -1,0 +1,10 @@
+#!/bin/sh
+
+rm -rf $1
+mkdir -p $1
+cd $1
+cmake $2 -DCMAKE_C_FLAGS="-m32" -DWITH_SSL=0
+make
+mkdir -p $3/lib
+cp lib/libwebsockets.a $3/lib/.
+

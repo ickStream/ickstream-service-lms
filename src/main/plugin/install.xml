@@ -6,6 +6,7 @@
     <defaultState>enabled</defaultState>
     <description>SETUP_PLUGIN_ICKSTREAM_GROUP_DESC</description>
     <module>Plugins::IckStreamPlugin::Plugin</module>
+    <icon>plugins/IckStreamPlugin/html/images/icon.png</icon>
     <targetApplication>
         <id>SqueezeCenter</id>
         <maxVersion>*</maxVersion>

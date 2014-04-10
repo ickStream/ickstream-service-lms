@@ -5,3 +5,5 @@ target
 *.idea
 *.o
 ickHttpWrapperDaemon-*
+ickHttpSqueezeboxPlayerDaemon-*
+._*

@@ -30,3 +30,45 @@ PLUGIN_ICKSTREAM_LMS_PASSWORD_DESC
 
 PLUGIN_ICKSTREAM_LMS_PASSWORD_REPEAT
 	EN	Confirm Password
+
+PLUGIN_ICKSTREAM_CONTENT_LOG
+	EN	ickStream Content Access Service
+
+PLUGIN_ICKSTREAM_PLAYER_LOG
+	EN	ickStream Player Service
+
+PLUGIN_ICKSTREAM_PROTOCOL_LOG
+	EN	ickStream Playback
+
+PLUGIN_ICKSTREAM_BROWSE_LOG
+	EN	ickStream Browse
+
+PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT
+	EN	Background daemon port
+
+PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT_DESC
+	EN	Communication port which should be used for background daemon integrating with the ickStream P2P network.
+
+PLUGIN_ICKSTREAM_PROTOCOL_HANDLER_DIRECT_STREAM_FAILED
+	EN	Streaming failed
+
+PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS
+	EN	Please login to ickStream Music Platform in Settings/Advanced/ickStream.
+
+PLUGIN_ICKSTREAM_BROWSE_ADD_SERVICES
+	EN	Please add some services to your ickStream account
+
+PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS
+	EN	No content available
+
+PLUGIN_ICKSTREAM_LOGIN_TO_ICKSTREAM
+	EN	Login to ickStream Music Platform
+
+PLUGIN_ICKSTREAM_CLOSE_WINDOW
+	EN	Close
+
+PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS
+	EN	Support for Squeezebox Touch and Squeezebox Radio
+
+PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS_DESC
+	EN	Enable support for Squeezebox Touch and Squeezebox Radio based players to be used as ickStream players. On these player types it's normally possible to install the ickStream applet directly on the Squeezebox and make it possible to use them without Logitech Media Server.

@@ -125,7 +125,7 @@
                             <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
                             <attach>true</attach>
                             <descriptors>
-                                <descriptor>src/main/assemble/serverzippackage.xml</descriptor>
+                                <descriptor>src/main/assemble/playerserverzippackage.xml</descriptor>
                             </descriptors>
                         </configuration>
                     </execution>
@@ -228,6 +228,18 @@
                                 </configuration>
                             </execution>
                             <execution>
+                                <id>clean-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
                                 <id>build-native-libwebsockets-32</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -266,6 +278,19 @@
                                 </configuration>
                             </execution>
                             <execution>
+                                <id>build-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>all LDFLAGS="-m32" CFLAGS="-m32 -DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpSqueezeboxPlayerDaemon-x86
+                                    </commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
                                 <id>clean-native-ickp2p-64</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -285,6 +310,18 @@
                                 </goals>
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-player-native-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
                                 </configuration>
@@ -324,6 +361,19 @@
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86_64
+                                    </commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-player-native-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpSqueezeboxPlayerDaemon-x86_64
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -372,6 +422,18 @@
                                 </configuration>
                             </execution>
                             <execution>
+                                <id>clean-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
                                 <id>build-native-libwebsockets-32</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -406,6 +468,19 @@
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>all CFLAGS="-DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabihf
+                                    </commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>all CFLAGS="-DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpSqueezeboxPlayerDaemon-arm-linux-gnueabihf
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -454,6 +529,18 @@
                                 </configuration>
                             </execution>
                             <execution>
+                                <id>clean-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
                                 <id>build-native-libwebsockets-32</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -488,6 +575,19 @@
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>all CFLAGS="-DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-arm-linux-gnueabi
+                                    </commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>all CFLAGS="-DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpSqueezeboxPlayerDaemon-arm-linux-gnueabi
                                     </commandlineArgs>
                                 </configuration>
                             </execution>
@@ -535,6 +635,18 @@
                                 </configuration>
                             </execution>
                             <execution>
+                                <id>clean-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
                                 <id>build-native-libwebsockets-32</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -573,6 +685,19 @@
                                 </configuration>
                             </execution>
                             <execution>
+                                <id>build-player-native-32</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>all LDFLAGS="-m32" CFLAGS="-m32 -DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpSqueezeboxPlayerDaemon-x86
+                                    </commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
                                 <id>clean-native-ickp2p-64</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -592,6 +717,18 @@
                                 </goals>
                                 <configuration>
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>cleanall</commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>clean-player-native-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>cleanall</commandlineArgs>
                                 </configuration>
@@ -631,6 +768,19 @@
                                     <workingDirectory>${basedir}/src/main/daemon</workingDirectory>
                                     <executable>make</executable>
                                     <commandlineArgs>all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpWrapperDaemon-x86_64
+                                    </commandlineArgs>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>build-player-native-64</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <workingDirectory>${basedir}/src/main/playerdaemon</workingDirectory>
+                                    <executable>make</executable>
+                                    <commandlineArgs>all LDFLAGS="-m64" CFLAGS="-m64 -fPIC -DICK_DEBUG -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE" EXECUTABLE=ickHttpSqueezeboxPlayerDaemon-x86_64
                                     </commandlineArgs>
                                 </configuration>
                             </execution>

@@ -23,7 +23,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package Plugins::IckStreamPlugin::Server;
+package Plugins::IckStreamPlugin::PlayerServer;
 
 use strict;
 use warnings;
@@ -43,29 +43,59 @@ my $sprefs = preferences('server');
 
 my $server;
 
+my $binaries;
+
+sub binaries {
+	my ($class, $re) = @_;
+
+	$binaries || do {
+
+		my $basedir = $class->_pluginDataFor('basedir');
+		my @dirs = ($basedir);
+		
+		for my $dir (@dirs) {
+			for my $file (Slim::Utils::Misc::readDirectory($dir,qr/ickHttpLegacySqueezeboxPlayerDaemon-/)) {
+				my $path = catdir($dir, $file);{
+					if (-f $path && -r $path) {
+						$binaries->{ $file } = $path;
+					}
+				}
+			}
+		}
+	};
+
+	for my $key (keys %$binaries) {
+	use Slim::Utils::Misc;
+		if ($key =~ $re) {
+			return ($key, $binaries->{$key});
+		}
+	}
+	return (undef,undef);
+}
+
 sub start {
 	my ($class, $plugin) = @_;
 
-    my $daemon = qr/^ickHttpWrapperDaemon$/;
+    my $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon$/;
     if ($Config::Config{'archname'} =~ /x86_64/) {
-        $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
+        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-x86_64$/;
     }elsif ($Config::Config{'archname'} =~ /darwin/) {
-        $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
+        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-x86_64$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabihf\-/) {
-        $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabihf$/;
+        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabihf$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabi\-/ || $Config::Config{'myarchname'} =~  /armv5tel/) {
-        $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
+        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabi$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-/) {
         if ($Config::Config{'lddlflags'} =~  /\-mfloat-abi=hard/) {
-            $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabihf$/;
+            $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabihf$/;
         }else {
-            $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
+            $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabi$/;
         }
     }else {
-        $daemon = qr/^ickHttpWrapperDaemon\-x86$/;
+        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-x86$/;
     }
 
-	my $serverPath = Plugins::IckStreamPlugin::Plugin->binaries($daemon);
+	my $serverPath = binaries($plugin, $daemon);
 
 	if ($serverPath) {
 
@@ -77,13 +107,13 @@ sub start {
 		return;
 	}
 
-	my $serverLog = catdir(Slim::Utils::OSDetect::dirsFor('log'), 'ickstream.log');
+	my $serverLog = catdir(Slim::Utils::OSDetect::dirsFor('log'), 'ickstreamplayer.log');
 	if(!$log->is_debug()) {
 	    $serverLog = catdir("/dev/null");
 	}
 	$log->debug("Logging daemon output to: $serverLog");
 
-	my $endpoint = "http://localhost:".$sprefs->get('httpport')."/plugins/IckStreamPlugin/jsonrpc";
+	my $endpoint = "http://localhost:".$sprefs->get('httpport')."/plugins/IckStreamPlugin/PlayerService/jsonrpc";
 	$log->debug("Using LMS at: $endpoint");
 
 	my $authorization = undef;
@@ -93,28 +123,21 @@ sub start {
 		$log->debug("Calculated authorization token");
 	}
 
-	my $serverName = $sprefs->get('libraryname');
-	if(!defined($serverName) || $serverName eq '') {
-		$serverName = Slim::Utils::Network::hostName();
-	}
-	$log->debug("With name: $serverName");
-
-	my $serverUUID = $prefs->get('uuid');
-	if(!defined($serverUUID)) {
-		$log->debug("No ickStream id created, creating a new one...");
-		$serverUUID = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
-		$prefs->set('uuid',$serverUUID);
-	}
-	$log->debug("Using ickStream identity: $serverUUID");
-
     my $serverIP = Slim::Utils::IPDetect::IP();
     if(!$serverIP) {
         $log->error("Can't detect IP address");
         return;
     }
 	$log->debug("Local IP-address: $serverIP");
+	my $daemonPort = $prefs->get('daemonPort');
+	if(!$daemonPort) {
+		$daemonPort = $sprefs->get('httpport')+6;
+		$prefs->set('daemonPort',$daemonPort);
+	}
+	
+	$log->debug("Using port $daemonPort for background daemon");
 
-	my @cmd = ($serverPath, $serverIP, $serverUUID, $serverName, $endpoint, $serverLog);
+	my @cmd = ($serverPath, $serverIP, $daemonPort, $endpoint, "/plugins/IckStreamPlugin/discovery", $serverLog);
 	$log->info("Starting server");
 
 	$log->debug("cmdline: ", join(' ', @cmd));
