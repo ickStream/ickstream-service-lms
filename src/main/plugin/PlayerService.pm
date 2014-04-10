@@ -216,7 +216,7 @@ sub getPlayerConfiguration {
         my $result = {
         	'cloudCoreUrl' => $cloudCoreUrl,
         	'playerName' => $client->name(),
-        	'playerModel' => 'Legacy Squeezebox',
+        	'playerModel' => 'Squeezebox',
         	'hardwareId' => $client->macaddress()
         };
         # the request was successful and is not async, send results back to caller!

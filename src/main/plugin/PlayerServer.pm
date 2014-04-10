@@ -54,7 +54,7 @@ sub binaries {
 		my @dirs = ($basedir);
 		
 		for my $dir (@dirs) {
-			for my $file (Slim::Utils::Misc::readDirectory($dir,qr/ickHttpLegacySqueezeboxPlayerDaemon-/)) {
+			for my $file (Slim::Utils::Misc::readDirectory($dir,qr/ickHttpSqueezeboxPlayerDaemon-/)) {
 				my $path = catdir($dir, $file);{
 					if (-f $path && -r $path) {
 						$binaries->{ $file } = $path;
@@ -76,23 +76,23 @@ sub binaries {
 sub start {
 	my ($class, $plugin) = @_;
 
-    my $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon$/;
+    my $daemon = qr/^ickHttpSqueezeboxPlayerDaemon$/;
     if ($Config::Config{'archname'} =~ /x86_64/) {
-        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-x86_64$/;
+        $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-x86_64$/;
     }elsif ($Config::Config{'archname'} =~ /darwin/) {
-        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-x86_64$/;
+        $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-x86_64$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabihf\-/) {
-        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabihf$/;
+        $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-arm\-linux\-gnueabihf$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabi\-/ || $Config::Config{'myarchname'} =~  /armv5tel/) {
-        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabi$/;
+        $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-arm\-linux\-gnueabi$/;
     }elsif ($Config::Config{'archname'} =~  /arm\-linux\-/) {
         if ($Config::Config{'lddlflags'} =~  /\-mfloat-abi=hard/) {
-            $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabihf$/;
+            $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-arm\-linux\-gnueabihf$/;
         }else {
-            $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-arm\-linux\-gnueabi$/;
+            $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-arm\-linux\-gnueabi$/;
         }
     }else {
-        $daemon = qr/^ickHttpLegacySqueezeboxPlayerDaemon\-x86$/;
+        $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-x86$/;
     }
 
 	my $serverPath = binaries($plugin, $daemon);
