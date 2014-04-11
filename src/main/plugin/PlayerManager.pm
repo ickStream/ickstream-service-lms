@@ -42,6 +42,7 @@ my $initializedPlayerDaemon = undef;
 
 sub start {
 	$initializedPlayerDaemon = 1;
+	$initializedPlayers = {};
 	my @players = Slim::Player::Client::clients();
 	foreach my $player (@players) {
 		Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);

@@ -37,11 +37,15 @@ use MIME::Base64;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 
+use Plugins::IckStreamPlugin::PlayerManager;
+
 my $log = logger('plugin.ickstream');
 my $prefs  = preferences('plugin.ickstream');
 my $sprefs = preferences('server');
 
 my $server;
+my $serverChecker = undef;
+my $PLUGIN;
 
 my $binaries;
 
@@ -75,7 +79,7 @@ sub binaries {
 
 sub start {
 	my ($class, $plugin) = @_;
-
+	$PLUGIN = $plugin;
     my $daemon = qr/^ickHttpSqueezeboxPlayerDaemon$/;
     if ($Config::Config{'archname'} =~ /x86_64/) {
         $daemon = qr/^ickHttpSqueezeboxPlayerDaemon\-x86_64$/;
@@ -146,20 +150,38 @@ sub start {
 		$log->debug("Adding authorization token");
 		push @cmd,$authorization;
 	}
-
+	if(defined($serverChecker)) {
+		Slim::Utils::Timers::killSpecific($serverChecker);
+		$serverChecker = undef;
+	}
 	$server = Proc::Background->new({'die_upon_destroy' => 1}, @cmd);
 
 	if (!$class->running) {
 		$log->error("Unable to launch server");
 	}else {
 		$log->info("Successfully launched server");
+		$serverChecker = Slim::Utils::Timers::setTimer($class, Time::HiRes::time()+15,\&checkAlive);
+		Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&Plugins::IckStreamPlugin::PlayerManager::start,$plugin);
 	}
+}
+
+sub checkAlive {
+	my $class = shift;
+	if($server && !$server->alive) {
+		$log->warn("ickHttpSqueezeboxPlayerDaemon daemon has died, restarting...");
+		$class->start($PLUGIN);
+	}
+	$serverChecker = Slim::Utils::Timers::setTimer($class, Time::HiRes::time()+15, \&checkAlive);
 }
 
 sub stop {
 	my $class = shift;
 
 	if ($class->running) {
+		if(defined($serverChecker)) {
+			Slim::Utils::Timers::killSpecific($serverChecker);
+			$serverChecker = undef;
+		}
 		$log->info("stopping server");
 		$server->die;
 	}

@@ -110,8 +110,6 @@ sub startServers {
 	
 	Plugins::IckStreamPlugin::ContentAccessServer->start($class);
 	Plugins::IckStreamPlugin::PlayerServer->start($class);
-	
-	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&Plugins::IckStreamPlugin::PlayerManager::start,$class);
 }
 
 sub shutdownPlugin {
