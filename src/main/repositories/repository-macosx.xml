@@ -7,7 +7,7 @@
     <plugins>
         <plugin name="IckStreamPlugin" version="${buildNumber}" target="mac" minTarget="7.7.0" maxTarget="7.8+">
             <title lang="EN">ickStream</title>
-            <desc lang="EN">Plugin that makes LMS server available for ickStream devices</desc>
+            <desc lang="EN">Plugin that makes LMS server available for ickStream devices and Squeezeboxes available as ickStream players</desc>
             <creator>ickStream GmbH</creator>
             <sha>${com.ickstream.services.lms.sha}</sha>
             <url>http://downloads.ickstream.com/squeezebox/IckStreamPlugin-${buildNumber}-macosx.zip</url>
