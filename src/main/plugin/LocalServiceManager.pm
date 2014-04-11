@@ -45,7 +45,7 @@ sub _setService {
 	my $serviceInformation = shift;
 	
 	$localServices->{$serviceId} = $serviceInformation->{'serviceUrl'};
-	$log->info("Got url for service(".$serviceId."): ".$localServices->{$serviceId});
+	$log->info("Got url for service(".$serviceInformation->{'name'}."): ".$localServices->{$serviceId});
 }
 
 sub _serviceExists {
@@ -153,7 +153,7 @@ sub handleDiscoveryJSON {
         # get the request data (POST for JSON 2.0)
         my $input = $httpResponse->request()->content();
 
-        $log->is_info && $log->info("POST data: [$input]");
+        $log->is_debug && $log->debug("POST data: [$input]");
 
         # create a hash to store our context
         my $uri = $httpResponse->request()->uri();
@@ -168,7 +168,7 @@ sub handleDiscoveryJSON {
 				$httpParams->{$name} = $value;
 			}
 		}
-		$log->is_info && $log->info( "Device information: " . Data::Dump::dump($httpParams) );
+		$log->is_debug && $log->debug( "Device information: " . Data::Dump::dump($httpParams) );
   
 		# Get player for uuid
 		my $players = $prefs->get('players');

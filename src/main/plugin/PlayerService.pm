@@ -1351,10 +1351,10 @@ sub sendPlaybackQueueChangedNotification {
 		my $params = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
-				$log->warn("Successfully sent playbackQueueChanged");
+				$log->info("Successfully sent playbackQueueChanged for ".$client->name());
 			},
 			sub {
-				$log->warn("Error when sending playbackQueueChanged");
+				$log->warn("Error when sending playbackQueueChanged for ".$client->name());
 			},
 			$params
 		)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/sendMessage",'Content-Type' => 'application/json','Authorization'=>$playerConfiguration->{'id'},to_json($notification));
@@ -1412,10 +1412,10 @@ sub sendPlayerStatusChangedNotification {
 		my $params = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
-				$log->warn("Successfully sent playerStatusChanged");
+				$log->info("Successfully sent playerStatusChanged for ".$client->name());
 			},
 			sub {
-				$log->warn("Error when sending playerStatusChanged");
+				$log->warn("Error when sending playerStatusChanged for ".$client->name());
 			},
 			$params
 		)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/sendMessage",'Content-Type' => 'application/json','Authorization'=>$playerConfiguration->{'id'},to_json($notification));
