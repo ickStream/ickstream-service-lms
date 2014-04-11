@@ -63,6 +63,38 @@ sub getAccessToken {
 	return $accessToken;
 }
 
+sub sliceResult {
+	my $result = shift;
+	my $args = shift;
+	my $forcedOffset = shift;
+	
+	my $index = $forcedOffset;
+	if(!defined($index)) {
+		$index = getOffset($args);
+	}
+	my @resultItems = ();
+	if(defined($args->{'quantity'}) && $args->{'quantity'} ne "") {
+		$log->debug("Getting items $index..".$args->{'quantity'});
+		@resultItems = @$result;
+		@resultItems = splice @resultItems,$index,$args->{'quantity'};
+	}else {
+		$log->debug("Getting items $index..");
+		@resultItems = @$result;
+		@resultItems = splice @resultItems,$index;
+	}
+	return \@resultItems;
+}
+
+sub getOffset {
+	my $args = shift;
+
+	my $index = 0;
+	if(defined($args->{'index'})) {
+		$index = int($args->{'index'});
+	}
+	return $index;
+}
+
 sub topLevel {
         my ($client, $cb, $args) = @_;
         
@@ -87,8 +119,11 @@ sub topLevel {
 						});
 				my $cacheKey = "$accessToken.$requestParams";
 				if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
-					$log->debug("Using cached content services from cloud");
-					$cb->({items => $cache{$cacheKey}->{'data'}});
+					$log->debug("Using cached content services from cloud for: ".Dumper($args));
+					my $items = $cache{$cacheKey}->{'data'};
+					my $resultItems = sliceResult($items,$args);
+					$log->debug("Returning: ".scalar(@$resultItems). " items");
+					$cb->({items => $resultItems, offset => getOffset($args)});
 					return;
 				}
 				$log->info("Retrieve content services from cloud");
@@ -114,8 +149,10 @@ sub topLevel {
 									$log->warn("Error: ".Dumper($jsonResponse));
 								}
 								if(scalar(@services)>0) {
-									$cache{$cacheKey} = { 'data' => \@services, 'time' => time()};
-									$cb->({items => \@services});
+									#$cache{$cacheKey} = { 'data' => \@services, 'time' => time()};
+									my $resultItems = sliceResult(\@services,$args);
+									$log->debug("Returning: ".scalar(@$resultItems). " items");
+									$cb->({items => $resultItems, offset => getOffset($args)});
 								}else {
 									$cb->({items => [{
 										name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_ADD_SERVICES'),
@@ -234,7 +271,9 @@ sub serviceContextMenu {
 					if(scalar(@menus)==1) {
 						serviceTypeMenu($client, $cb, $args, $serviceId, @menus[0]->{'passthrough'}[1]);
 					}else {
-						$cb->({items => \@menus});
+						my $resultItems = sliceResult(\@menus,$args);
+						$log->debug("Returning: ".scalar(@$resultItems). " items");
+						$cb->({items => $resultItems, offset => getOffset($args)});
 					}
 				}else {
 					$cb->({items => [{
@@ -332,7 +371,9 @@ sub serviceTypeMenu {
 					if(scalar(@menus)==1) {
 						serviceItemMenu($client, $cb, $args, $serviceId, @menus[0]->{'passthrough'}[1], @menus[0]->{'passthrough'}[2]);
 					}else {
-						$cb->({items => \@menus});
+						my $resultItems = sliceResult(\@menus,$args);
+						$log->debug("Returning: ".scalar(@$resultItems). " items");
+						$cb->({items => $resultItems, offset => getOffset($args)});
 					}
 				}else {
 					$cb->({items => [{
@@ -386,7 +427,7 @@ sub serviceItemMenu {
 					$params->{'count'} = int($args->{'quantity'});
 				}
 				if(defined($args->{'index'}) && $args->{'index'} ne "") {
-					$params->{'offset'} = $args->{'index'};
+					$params->{'offset'} = int($args->{'index'});
 				}else {
 					$params->{'offset'} = 0;
 				}
@@ -397,10 +438,18 @@ sub serviceItemMenu {
 							'params' => $params
 						});
 				$log->debug("Using: ".Dumper($requestParams));
-				my $cacheKey = "$accessToken.$requestParams";
+				my $cacheKey = "$accessToken.$serviceId.$requestParams";
+				$log->debug("Check cache with key: ".$cacheKey);
 				if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
-					$log->debug("Using cached items from: $serviceUrl");
-					$cb->({items => $cache{$cacheKey}->{'data'}});
+					$log->debug("Using cached items from: $serviceUrl for: ".Dumper($args));
+					my $resultItems = sliceResult($cache{$cacheKey}->{'data'},$args,0);
+					if(defined($cache{$cacheKey}->{'total'})) {
+						$log->debug("Returning: ".scalar(@$resultItems). " items of ".$cache{$cacheKey}->{'total'});
+						$cb->({items => $resultItems, total => $cache{$cacheKey}->{'total'}, offset => getOffset($args)});
+					}else {
+						$log->debug("Returning: ".scalar(@$resultItems). " items");
+						$cb->({items => $resultItems, offset => getOffset($args)});
+					}
 					return;
 				}
 				$log->info("Retriving items from: $serviceUrl");
@@ -409,7 +458,11 @@ sub serviceItemMenu {
 								my $http = shift;
 								my $jsonResponse = from_json($http->content);
 								my @menus = ();
+								my $totalItems = undef;
 								if($jsonResponse->{'result'}) {
+									if(defined($jsonResponse->{'result'}->{'countAll'})) {
+										$totalItems =$jsonResponse->{'result'}->{'countAll'};
+									}
 									foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
 										my $menu = {
 											'name' => $item->{'text'},
@@ -464,8 +517,20 @@ sub serviceItemMenu {
 									$log->warn("Error: ".Dumper($jsonResponse));
 								}
 								if(scalar(@menus)>0) {
-									$cache{$cacheKey} = { 'data' => \@menus, 'time' => time()};
-									$cb->({items => \@menus});
+									$log->debug("Store in cache with key: ".$cacheKey);
+									if(defined($totalItems)) {
+										$cache{$cacheKey} = { 'data' =>\@menus, 'total' => $totalItems, 'time' => time()};
+									}else {
+										$cache{$cacheKey} = { 'data' =>\@menus, 'time' => time()};
+									}
+									my $resultItems = sliceResult(\@menus,$args,0);
+									if(defined($totalItems)) {
+										$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
+										$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
+									}else {
+										$log->debug("Returning: ".scalar(@$resultItems). " items");
+										$cb->({items => $resultItems, offset => getOffset($args)});
+									}
 								}else {
 									$cb->({items => [{
 										name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
