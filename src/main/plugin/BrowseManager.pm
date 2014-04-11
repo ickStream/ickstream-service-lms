@@ -231,7 +231,11 @@ sub serviceContextMenu {
 					}
 				}
 				if(scalar(@menus)>0) {
-					$cb->({items => \@menus});
+					if(scalar(@menus)==1) {
+						serviceTypeMenu($client, $cb, $args, $serviceId, @menus[0]->{'passthrough'}[1]);
+					}else {
+						$cb->({items => \@menus});
+					}
 				}else {
 					$cb->({items => [{
 						name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
@@ -266,6 +270,8 @@ sub getNameForType {
 		return 'Genres';
 	}elsif($type eq 'playlist') {
 		return 'Playlists';
+	}elsif($type eq 'friend') {
+		return 'Friends';
 	}else {
 		return $type.'s';
 	}
@@ -289,8 +295,8 @@ sub serviceTypeMenu {
 				if($protocolDescription->{'items'}) {
 					foreach my $context (@{$protocolDescription->{'items'}}) {
 						if($context->{'contextId'} eq $contextId) {
-							my $supported = undef;
 							foreach my $request (@{$context->{'supportedRequests'}}) {
+								my $supported = undef;
 								foreach my $parameters (@{$request->{'parameters'}}) {
 									my $unsupported = undef;
 									foreach my $parameter (@{$parameters}) {
@@ -323,7 +329,11 @@ sub serviceTypeMenu {
 					}
 				}
 				if(scalar(@menus)>0) {
-					$cb->({items => \@menus});
+					if(scalar(@menus)==1) {
+						serviceItemMenu($client, $cb, $args, $serviceId, @menus[0]->{'passthrough'}[1], @menus[0]->{'passthrough'}[2]);
+					}else {
+						$cb->({items => \@menus});
+					}
 				}else {
 					$cb->({items => [{
 						name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
@@ -355,31 +365,23 @@ sub serviceItemMenu {
 			sub {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
-				
-				my $contextRequests = undef;
-				my $allMusicRequests = undef;
-				
-				if($protocolDescription->{'items'}) {
-					foreach my $context (@{$protocolDescription->{'items'}}) {
-						if($context->{'contextId'} eq $contextId) {
-							$contextRequests = $context->{'supportedRequests'};
-						}elsif($context->{'contextId'} eq 'allMusic') {
-							$allMusicRequests = $context->{'supportedRequests'};
-						}
+								
+				my $tmpParent = $parent;
+				my @usedTypes = ();
+				while(defined($tmpParent)) {
+					if(defined($tmpParent->{'id'}) && defined($tmpParent->{'type'}) && $tmpParent->{'type'} ne 'menu' && $tmpParent->{'type'} ne 'category') {
+						push @usedTypes, $tmpParent->{'type'};
+					}
+					if(defined($tmpParent->{'parent'})) {
+						$tmpParent = $tmpParent->{'parent'};
+					}else {
+						$tmpParent = undef;
 					}
 				}
 
 
 				my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
-				my $params = {};
-				if(!defined($parent->{'id'}) && defined($parent->{'type'})) {
-					$params = createChildRequestParametersFromContext($contextRequests, $contextId,$parent->{'type'},$parent);
-				}else {
-					$params = createChildRequestParametersFromContext($contextRequests, $contextId,undef,$parent);
-					if(!defined($params) && $contextId ne 'allMusic') {
-						$params = createChildRequestParametersFromContext($allMusicRequests, 'allMusic',undef,$parent);
-					}
-				}
+				my $params = createChildRequestParameters($protocolDescription, $contextId,$parent->{'type'},$parent,\@usedTypes);
 				if(defined($args->{'quantity'}) && $args->{'quantity'} ne "") {
 					$params->{'count'} = int($args->{'quantity'});
 				}
@@ -417,6 +419,7 @@ sub serviceItemMenu {
 												{
 													'type' => $item->{'type'},
 													'id' => $item->{'id'},
+													'preferredChildItems' => $item->{'preferredChildItems'},
 													'parent' => $parent
 												}
 											]
@@ -505,18 +508,62 @@ sub compareTypes {
 	return $typePriorities->{$type1} - $typePriorities->{$type2};
 }
 
+sub createChildRequestParameters {
+	my $protocolDescription = shift;
+	my $contextId = shift;
+	my $type = shift;
+	my $parent = shift;
+	my $excludedTypes = shift;
+	
+	
+	my $contextRequests = undef;
+	my $allMusicRequests = undef;
+	
+	if($protocolDescription->{'items'}) {
+		foreach my $context (@{$protocolDescription->{'items'}}) {
+			if($context->{'contextId'} eq $contextId) {
+				$contextRequests = $context->{'supportedRequests'};
+			}elsif($context->{'contextId'} eq 'allMusic') {
+				$allMusicRequests = $context->{'supportedRequests'};
+			}
+		}
+	}
+
+	my $params = undef;
+	if(!defined($parent->{'id'}) && defined($parent->{'type'})) {
+		$params = createChildRequestParametersFromContext($contextRequests, $contextId,$parent->{'type'},$parent,$excludedTypes);
+		if(!defined($params) && $contextId ne 'allMusic') {
+			$params = createChildRequestParametersFromContext($allMusicRequests, 'allMusic',$parent->{'type'},$parent,$excludedTypes);
+		}
+	}else {
+		$params = createChildRequestParametersFromContext($contextRequests, $contextId,undef,$parent,$excludedTypes);
+		if(!defined($params) && $contextId ne 'allMusic') {
+			$params = createChildRequestParametersFromContext($allMusicRequests, 'allMusic',undef,$parent,$excludedTypes);
+		}
+	}
+	return $params;
+
+}
+
 sub createChildRequestParametersFromContext {
 	my $supportedRequests = shift;
 	my $contextId = shift;
 	my $type = shift;
 	my $parent = shift;
+	my $excludedTypes = shift;
 	
 	my $possibleRequests = findPossibleRequests($supportedRequests,$contextId,$type,$parent);
 	my $supported = undef;
 	my $supportedParameters = {};
-	
+	my $preferredSupportedParameters = {};
 	foreach my $possibleRequest (@{$possibleRequests}) {
-		if(scalar(keys %$supportedParameters) == (scalar(keys %$possibleRequest) + 1) &&
+		if(defined($possibleRequest->{'type'}) && defined($excludedTypes) && grep(/^{$possibleRequest->{'type'}}$/,@$excludedTypes)) {
+			# We aren't interested in excluded types
+		}elsif(defined($parent) && defined($parent->{'id'}) && defined($parent->{'type'}) && (!defined($possibleRequest->{$parent->{'type'}.'Id'}) || $possibleRequest->{$parent->{'type'}.'Id'} ne $parent->{'id'})) {
+			# We aren't interested in requests unless they filter by parent item
+		}elsif(defined($parent) && !defined($parent->{'id'}) && (!defined($possibleRequest->{'type'}) || $possibleRequest->{'type'} ne $parent->{'type'})) {
+			# We aren't interested in requests if parent item is filtered by type and the request type is different
+		}elsif(scalar(keys %$supportedParameters) == (scalar(keys %$possibleRequest) + 1) &&
 			defined($supportedParameters->{'type'}) &&
 			!defined($possibleRequest->{'type'})) {
 				
@@ -531,11 +578,17 @@ sub createChildRequestParametersFromContext {
 			
 			# We should always prefer choices with more criterias
 			$supportedParameters = $possibleRequest;
+			if(defined($parent) && defined($parent->{'preferredChildItems'}) && scalar(@{$parent->{'preferredChildItems'}})>0 && $supportedParameters->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
+				$preferredSupportedParameters = $supportedParameters;
+			}
 		}elsif(scalar(keys %$supportedParameters) == scalar(keys %$possibleRequest) &&
 			compareTypes($supportedParameters,$possibleRequest) < 0) {
 				
 			# With equal preiority we should prefer items which show more items
 			$supportedParameters = $possibleRequest;
+			if(defined($parent) && defined($parent->{'preferredChildItems'}) && scalar(@{$parent->{'preferredChildItems'}})>0 && $supportedParameters->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
+				$preferredSupportedParameters = $supportedParameters;
+			}
 		}elsif(scalar(keys %$supportedParameters) == scalar(keys %$possibleRequest) &&
 			defined($parent) &&
 			!defined($supportedParameters->{$parent->{'type'}.'Id'}) &&
@@ -543,8 +596,23 @@ sub createChildRequestParametersFromContext {
 				
 			# With equal number of priority we should prefer items which filter by nearest parent
 			$supportedParameters = $possibleRequest;
+			if(defined($parent->{'preferredChildItems'}) && scalar(@{$parent->{'preferredChildItems'}})>0 && $supportedParameters->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
+				$preferredSupportedParameters = $supportedParameters;
+			}
+		}elsif(scalar(keys %$supportedParameters) == scalar(keys %$possibleRequest) &&
+			defined($parent) &&
+			defined($parent->{'preferredChildItems'}) &&
+			scalar(@{$parent->{'preferredChildItems'}})>0 &&
+			defined($possibleRequest->{'type'}) &&
+			$possibleRequest->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
+				
+			# With equal number of priority we should prefer items which filter by nearest parent
+			$preferredSupportedParameters = $possibleRequest;
 		}
 
+	}
+	if(scalar(keys %$preferredSupportedParameters)>0) {
+		$supportedParameters = $preferredSupportedParameters;
 	}
 	
 	if(scalar(keys %$supportedParameters)>0) {
