@@ -1346,17 +1346,19 @@ sub sendPlaybackQueueChangedNotification {
 	
     if($log->is_debug) { my $val = dclone($notification);$log->debug("notification: ".Data::Dump::dump($val)); }
 
-    my $serverIP = Slim::Utils::IPDetect::IP();
-	my $params = { timeout => 35 };
-	Slim::Networking::SimpleAsyncHTTP->new(
-		sub {
-			$log->warn("Successfully sent playbackQueueChanged");
-		},
-		sub {
-			$log->warn("Error when sending playbackQueueChanged");
-		},
-		$params
-	)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/sendMessage",'Content-Type' => 'application/json','Authorization'=>$playerConfiguration->{'id'},to_json($notification));
+	if(!main::ISWINDOWS) {
+	    my $serverIP = Slim::Utils::IPDetect::IP();
+		my $params = { timeout => 35 };
+		Slim::Networking::SimpleAsyncHTTP->new(
+			sub {
+				$log->warn("Successfully sent playbackQueueChanged");
+			},
+			sub {
+				$log->warn("Error when sending playbackQueueChanged");
+			},
+			$params
+		)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/sendMessage",'Content-Type' => 'application/json','Authorization'=>$playerConfiguration->{'id'},to_json($notification));
+	}
 }
 
 sub sendPlayerStatusChangedNotification {
@@ -1405,17 +1407,19 @@ sub sendPlayerStatusChangedNotification {
 
     if($log->is_debug) { my $val = dclone($notification);$log->debug("notification: ".Data::Dump::dump($val)); }
 
-    my $serverIP = Slim::Utils::IPDetect::IP();
-	my $params = { timeout => 35 };
-	Slim::Networking::SimpleAsyncHTTP->new(
-		sub {
-			$log->warn("Successfully sent playerStatusChanged");
-		},
-		sub {
-			$log->warn("Error when sending playerStatusChanged");
-		},
-		$params
-	)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/sendMessage",'Content-Type' => 'application/json','Authorization'=>$playerConfiguration->{'id'},to_json($notification));
+	if(!main::ISWINDOWS) {
+	    my $serverIP = Slim::Utils::IPDetect::IP();
+		my $params = { timeout => 35 };
+		Slim::Networking::SimpleAsyncHTTP->new(
+			sub {
+				$log->warn("Successfully sent playerStatusChanged");
+			},
+			sub {
+				$log->warn("Error when sending playerStatusChanged");
+			},
+			$params
+		)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/sendMessage",'Content-Type' => 'application/json','Authorization'=>$playerConfiguration->{'id'},to_json($notification));
+	}
 }
 
 sub getDefaultPlayerStatus() {

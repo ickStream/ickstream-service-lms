@@ -99,8 +99,10 @@ sub initPlugin {
 	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServers,$class);
 	
 	Slim::Control::Request::subscribe(\&Plugins::IckStreamPlugin::PlayerManager::playerChange,[['client']]);
-	Slim::Control::Request::subscribe(\&trackEnded,[['playlist'],['newsong']]);
-	Slim::Control::Request::subscribe(\&otherPlaylist,[['playlist'],['clear','loadtracks','playtracks','play','loadalbum','playalbum']]);
+	if(!main::ISWINDOWS) {
+		Slim::Control::Request::subscribe(\&trackEnded,[['playlist'],['newsong']]);
+		Slim::Control::Request::subscribe(\&otherPlaylist,[['playlist'],['clear','loadtracks','playtracks','play','loadalbum','playalbum']]);
+	}
 }
 
 
@@ -108,13 +110,19 @@ sub startServers {
 	my $timer = shift;
 	my $class = shift;
 	
-	Plugins::IckStreamPlugin::ContentAccessServer->start($class);
-	Plugins::IckStreamPlugin::PlayerServer->start($class);
+	if(!main::ISWINDOWS) {
+		Plugins::IckStreamPlugin::ContentAccessServer->start($class);
+		Plugins::IckStreamPlugin::PlayerServer->start($class);
+	}else {
+		Plugins::IckStreamPlugin::PlayerManager::start($class);
+	}
 }
 
 sub shutdownPlugin {
-	Plugins::IckStreamPlugin::ContentAccessServer->stop;
-	Plugins::IckStreamPlugin::PlayerServer->stop;
+	if(!main::ISWINDOWS) {
+		Plugins::IckStreamPlugin::ContentAccessServer->stop;
+		Plugins::IckStreamPlugin::PlayerServer->stop;
+	}
 }
 
 sub getDisplayName { 'PLUGIN_ICKSTREAM' }

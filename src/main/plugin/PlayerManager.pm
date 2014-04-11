@@ -57,11 +57,11 @@ sub playerChange {
 		if(!$initializedPlayerDaemon) {
 			return;
 		}
-		if($request->isCommand([['client'],['new']]) || $request->isCommand([['client'],['reconnect']])) {
-			$log->debug("New or reconnected player: ".$player->name());
+		if(defined($player) && $request->isCommand([['client'],['new']]) || $request->isCommand([['client'],['reconnect']])) {
+			$log->info("New or reconnected player: ".$player->name());
 			initializePlayer($player);
-		}elsif($request->isCommand([['client'],['disconnect']])) {
-			$log->debug("Disconnected player: ".$player->name());
+		}elsif(defined($player) && $request->isCommand([['client'],['disconnect']])) {
+			$log->info("Disconnected player: ".$player->name());
 			uninitializePlayer($player);
 		}
 }
@@ -87,20 +87,24 @@ sub initializePlayer {
 			$prefs->set('players',$players);
 			$playerConfiguration->{'id'} = $uuid;
 			$prefs->set('player_'.$player->id(), $playerConfiguration);
-		    my $serverIP = Slim::Utils::IPDetect::IP();
-			Slim::Networking::SimpleAsyncHTTP->new(
-				sub {
-					$initializedPlayers->{$player->id()} = 1;
-					$log->warn("Successfully initialized ".$player->name());
-					Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 1, \&updateAddressOfPlayer,$player);
-
-				},
-				sub {
-					$initializedPlayers->{$player->id()} = undef;
-					$log->warn("Error when initializing ".$player->name());
-				},
-				$params
-			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
+			if(!main::ISWINDOWS) {
+			    my $serverIP = Slim::Utils::IPDetect::IP();
+				Slim::Networking::SimpleAsyncHTTP->new(
+					sub {
+						$initializedPlayers->{$player->id()} = 1;
+						$log->info("Successfully initialized ".$player->name());
+						Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 1, \&updateAddressOfPlayer,$player);
+	
+					},
+					sub {
+						$initializedPlayers->{$player->id()} = undef;
+						$log->warn("Error when initializing ".$player->name());
+					},
+					$params
+				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
+			}else {
+				Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 1, \&updateAddressOfPlayer,$player);
+			}
 
 		}
 	}
@@ -121,17 +125,19 @@ sub uninitializePlayer {
 	    my $serverIP = Slim::Utils::IPDetect::IP();
 	    my $playerConfiguration = $prefs->get('player_'.$player->id()) || {};
 	    my $uuid = $playerConfiguration->{'id'};
-		Slim::Networking::SimpleAsyncHTTP->new(
-			sub {
-				$initializedPlayers->{$player->id()} = undef;
-				$log->warn("Successfully removed ".$player->name());
-			},
-			sub {
-				$initializedPlayers->{$player->id()} = undef;
-				$log->warn("Error when removing ".$player->name());
-			},
-			$params
-		)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
+		if(!main::ISWINDOWS) {
+			Slim::Networking::SimpleAsyncHTTP->new(
+				sub {
+					$initializedPlayers->{$player->id()} = undef;
+					$log->info("Successfully removed ".$player->name());
+				},
+				sub {
+					$initializedPlayers->{$player->id()} = undef;
+					$log->warn("Error when removing ".$player->name());
+				},
+				$params
+			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
+		}
 	}
 }
 
