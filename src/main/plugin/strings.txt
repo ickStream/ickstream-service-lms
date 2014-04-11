@@ -8,7 +8,7 @@ SETUP_PLUGIN_ICKSTREAM_GROUP
 	EN	ickStream
 
 SETUP_PLUGIN_ICKSTREAM_GROUP_DESC
-	EN	The ickStream plugin makes the Logitech Media Server library available to other ickStream devices.
+	EN	The ickStream plugin makes the Logitech Media Server library available to other ickStream devices and makes the Squeezeboxes available as ickStream players.
 
 PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST
 	EN	Sort albums for artist

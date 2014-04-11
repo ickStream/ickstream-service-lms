@@ -7,6 +7,7 @@
     <description>SETUP_PLUGIN_ICKSTREAM_GROUP_DESC</description>
     <module>Plugins::IckStreamPlugin::Plugin</module>
     <icon>plugins/IckStreamPlugin/html/images/icon.png</icon>
+    <optionsURL>plugins/IckStreamPlugin/settings/basic.html</optionsURL>
     <targetApplication>
         <id>SqueezeCenter</id>
         <maxVersion>*</maxVersion>
