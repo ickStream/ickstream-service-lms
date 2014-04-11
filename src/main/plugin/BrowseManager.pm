@@ -380,10 +380,10 @@ sub serviceItemMenu {
 						$params = createChildRequestParametersFromContext($allMusicRequests, 'allMusic',undef,$parent);
 					}
 				}
-				if(defined($args->{'quantity'})) {
-					#$params->{'count'} = int($args->{'quantity'});
+				if(defined($args->{'quantity'}) && $args->{'quantity'} ne "") {
+					$params->{'count'} = int($args->{'quantity'});
 				}
-				if(defined($args->{'index'})) {
+				if(defined($args->{'index'}) && $args->{'index'} ne "") {
 					$params->{'offset'} = $args->{'index'};
 				}else {
 					$params->{'offset'} = 0;
