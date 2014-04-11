@@ -46,6 +46,8 @@ my $prefs  = preferences('plugin.ickstream');
 my $sprefs = preferences('server');
 
 my $server;
+my $serverChecker = undef;
+my $PLUGIN;
 
 my $binaries;
 
@@ -79,7 +81,7 @@ sub binaries {
 
 sub start {
 	my ($class, $plugin) = @_;
-
+	$PLUGIN = $plugin;
     my $daemon = qr/^ickHttpWrapperDaemon$/;
     if ($Config::Config{'archname'} =~ /x86_64/) {
         $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
@@ -158,19 +160,37 @@ sub start {
 		push @cmd,$authorization;
 	}
 
+	if(defined($serverChecker)) {
+		Slim::Utils::Timers::killSpecific($serverChecker);
+		$serverChecker = undef;
+	}
 	$server = Proc::Background->new({'die_upon_destroy' => 1}, @cmd);
 
 	if (!$class->running) {
 		$log->error("Unable to launch server");
 	}else {
 		$log->info("Successfully launched server");
+		$serverChecker = Slim::Utils::Timers::setTimer($class, Time::HiRes::time()+15,\&checkAlive);
 	}
+}
+
+sub checkAlive {
+	my $class = shift;
+	if($server && !$server->alive) {
+		$log->warn("ickHttpWrapperDaemon daemon has died, restarting...");
+		$class->start($PLUGIN);
+	}
+	$serverChecker = Slim::Utils::Timers::setTimer($class, Time::HiRes::time()+15, \&checkAlive);
 }
 
 sub stop {
 	my $class = shift;
 
 	if ($class->running) {
+		if(defined($serverChecker)) {
+			Slim::Utils::Timers::killSpecific($serverChecker);
+			$serverChecker = undef;
+		}
 		$log->info("stopping server");
 		$server->die;
 	}
