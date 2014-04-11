@@ -482,7 +482,7 @@ sub serviceItemMenu {
 										}
 										if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
 											$menu->{'url'} = \&serviceItemMenu;
-											if($item->{'type'} eq 'album') {
+											if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
 												$menu->{'type'} = 'playlist';
 												if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'artist' || !defined($parent->{'id'}))) {
 													$menu->{'line1'} = $item->{'text'};
@@ -495,7 +495,9 @@ sub serviceItemMenu {
 										}else {
 								        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
 											$menu->{'play'} = 'ickstream://'.$item->{'id'};
-											$menu->{'type'} = 'audio';
+											if(defined($parent) && $parent->{'type'} ne 'album' && $parent->{'type'} ne 'playlist') {
+												$menu->{'type'} = 'audio';
+											}
 											$menu->{'on_select'} => 'play';
 											$menu->{'playall'} => 1;
 											if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'album' || !defined($parent->{'id'}))) {
