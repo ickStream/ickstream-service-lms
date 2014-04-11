@@ -439,6 +439,7 @@ sub serviceItemMenu {
 										}else {
 								        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
 											$menu->{'play'} = 'ickstream://'.$item->{'id'};
+											$menu->{'type'} = 'audio';
 											$menu->{'on_select'} => 'play';
 											$menu->{'playall'} => 1;
 											if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'album' || !defined($parent->{'id'}))) {
