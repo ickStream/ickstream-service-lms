@@ -91,24 +91,21 @@ void removePlayerForContext(ickP2pContext_t* context) {
     pthread_mutex_lock( &contextMutex );
 
     if(contexts != NULL) {
-        if(contexts->next == NULL) {
-            if(contexts->context==context) {
-            	free(contexts->deviceId);
-                free(contexts);
-                contexts = NULL;
-            }
+        if(contexts->context == context) {
+           	free(contexts->deviceId);
+			free(contexts);
+			contexts = contexts->next;
         }else {
             struct _ickP2pPlayerContext* next = contexts;
             while(next->next != NULL) {
                 if(next->next->context==context) {
+                	struct _ickP2pPlayerContext* deleted = next->next;
+	                next->next = next->next->next;
+	                free(deleted->deviceId);
+	                free(deleted);
                     break;
                 }
                 next = next->next;
-            }
-            if(next->next->context == context) {
-                free(next->next->deviceId);
-                free(next->next);
-                next->next = NULL;
             }
         }
     }
@@ -260,6 +257,7 @@ void httpServer(int listenfd)
 						char* toDeviceId = strtok_r(NULL, "/",&strtokContext);
 	
 						printf("GOT: \nMETHOD: %s\nPATH: %s\nPROT: %s\nCommand: %s\nFrom: %s\nTo: %s\nData: %s\n",method,path,prot,command,fromDeviceId,toDeviceId,body);
+						fflush (stdout);
 						if(strcmp(command,"start")==0) {
 							char* deviceName = strtok_r(body, "\n\r",&strtokContext);
 							if(deviceName == NULL) {
@@ -294,10 +292,13 @@ void httpServer(int listenfd)
 							ickP2pContext_t* context = getContextForPlayer(fromDeviceId);
 							if(context != NULL) {
 							    printf("Shutting down ickP2P for %s\n",fromDeviceId);
+								fflush (stdout);
 							    ickP2pEnd(context,NULL);
 							    printf("Removing context for %s\n",fromDeviceId);
+								fflush (stdout);
 							    removePlayerForContext(context);
 							    printf("Shutdown ickP2P for %s\n",fromDeviceId);
+								fflush (stdout);
 							    writeSuccessResponse(fd);
 							}else {
 								writeErrorResponse(fd, "401 Unauthorized");
@@ -432,7 +433,7 @@ httpRequest_end:
 
 void discoveryCb(ickP2pContext_t *ictx, const char *szDeviceId, ickP2pDeviceState_t change, ickP2pServicetype_t service)
 {
-    printf("DISCOVERY %s type=%d services=%d)\n",szDeviceId,(int)change,(int)service);
+    printf("DISCOVERY %s type=%d services=%d\n",szDeviceId,(int)change,(int)service);
 	fflush (stdout);
 	const char* destinationDeviceId = ickP2pGetDeviceUuid(ictx);
 	if(change == ICKP2P_CONNECTED) {
