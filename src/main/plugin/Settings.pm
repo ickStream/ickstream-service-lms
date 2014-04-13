@@ -63,7 +63,7 @@ sub prefs {
 }
 
 sub handler {
-	my ($class, $client, $params) = @_;
+	my ($class, $client, $params, $callback, $httpClient, $response) = @_;
 
 	if ($serverPrefs->get('authorize')) {
 		$params->{'authorize'} = 1
@@ -75,9 +75,6 @@ sub handler {
 
 	$params->{'authenticationUrl'} = 'https://api.ickstream.com/ickstream-cloud-core/oauth?redirect_uri='.$serverUrl.'&client_id=C5589EF9-9C28-4556-942A-765E698215F1';
         
-    my $enabledSqueezePlayPlayers = 0;
-    my $disabledSqueezePlayPlayers = 0;
-    
 	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
 		my $val = $params->{'pref_password'};
 		if ($val ne $params->{'pref_password_repeat'}) {
@@ -91,22 +88,78 @@ sub handler {
 	if ($params->{'saveSettings'}) {
 		if($params->{'pref_squeezePlayPlayersEnabled'} && !$prefs->get('squeezePlayPlayersEnabled')) {
 			$log->info('Enabling Squeezebox Touch/Radio players');
-			$enabledSqueezePlayPlayers = 1;
+			$params->{'enabledSqueezePlayPlayers'} = 1;
 		}elsif(!$params->{'pref_squeezePlayPlayersEnabled'} && $prefs->get('squeezePlayPlayersEnabled')) {
 			$log->info('Disabling Squeezebox Touch/Radio players');
-			$disabledSqueezePlayPlayers = 1;
+			$params->{'disabledSqueezePlayPlayers'} = 1;
 		}	
 	}
 	
+	if ($params->{'logout'}) {
+		my @players = Slim::Player::Client::clients();
+		foreach my $player (@players) {
+			Plugins::IckStreamPlugin::PlayerManager::uninitializePlayer($player);
+		}
+		$prefs->set('accessToken',undef);
+	}
+	
+	if($prefs->get('accessToken')) {
+		$params->{'manageAccountUrl'} = 'https://api.ickstream.com';
+		my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		Slim::Networking::SimpleAsyncHTTP->new(
+			sub {
+				my $http = shift;
+				my $jsonResponse = from_json($http->content);
+				if(defined($jsonResponse->{'result'})) {
+					$params->{'authenticationName'} = $jsonResponse->{'result'}->{'name'};
+					my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
+					&{$callback}($client,$params,$result,$httpClient,$response);
+				}else {
+					my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
+					&{$callback}($client,$params,$result,$httpClient,$response);
+				}
+			},
+			sub {
+				my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
+				&{$callback}($client,$params,$result,$httpClient,$response);
+			},
+			undef
+		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$prefs->get('accessToken'),to_json({
+			'jsonrpc' => '2.0',
+			'id' => 1,
+			'method' => 'getUser',
+			'params' => {
+			}
+		}));
+		return undef;
+	}else {
+		return finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
+	}
+}
+
+sub finalizeHandler {
+	my ($class, $client, $params, $callback, $httpClient, $response) = @_;
+	
+	my @players = Slim::Player::Client::clients();
+	my @initializedPlayers = ();
+	foreach my $player (@players) {
+		if(Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
+			push @initializedPlayers, $player;
+		}
+	}
+	if(scalar(@initializedPlayers)>0) {
+		$params->{'initializedPlayers'} = \@initializedPlayers;
+	}
+	
 	my $result = $class->SUPER::handler($client, $params);
-	if($enabledSqueezePlayPlayers) {
+	if($params->{'enabledSqueezePlayPlayers'}) {
 		my @players = Slim::Player::Client::clients();
 		foreach my $player (@players) {
 			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
 				Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
 			}
 		}
-	}elsif($disabledSqueezePlayPlayers) {
+	}elsif($params->{'disabledSqueezePlayPlayers'}) {
 		my @players = Slim::Player::Client::clients();
 		foreach my $player (@players) {
 			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
@@ -162,7 +215,7 @@ sub handleAuthenticationFinished {
 													foreach my $player (@players) {
 														if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
 															$log->debug("Processing player: ".$player->name());
-															Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player,$controllerAccessToken);
+															Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
 														}
 													}
 													&{$callback}($client,$params,$output,$httpClient,$response);

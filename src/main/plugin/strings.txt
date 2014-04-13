@@ -64,6 +64,36 @@ PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS
 PLUGIN_ICKSTREAM_LOGIN_TO_ICKSTREAM
 	EN	Login to ickStream Music Platform
 
+PLUGIN_ICKSTREAM_LOGGED_IN_AS
+	EN	Logged in as: 
+
+PLUGIN_ICKSTREAM_CLOUD_SERVICE
+	EN	ickStream Music Platform Service
+
+PLUGIN_ICKSTREAM_CLOUD_SERVICE_DESC
+	EN	You need to login to be able to browse or playback content provided through ickStream Music Platform Service. 
+
+PLUGIN_ICKSTREAM_CLOUD_ACCOUNT_MANAGEMENT
+	EN	Add or remove services from your ickStream Music Platform account
+
+PLUGIN_ICKSTREAM_PLAYERS
+	EN	Squeezeboxes configured for ickStream
+
+PLUGIN_ICKSTREAM_PLAYERS_DESC
+	EN	Squeezeboxes which haven been configured to be used with ickStream
+
+PLUGIN_ICKSTREAM_PLAYERS_NONE
+	EN	No players setup for ickStream
+
+PLUGIN_ICKSTREAM_CLOUD_SERVICE_REFRESH
+	EN	Refresh
+
+PLUGIN_ICKSTREAM_CLOUD_SERVICE_LOGOUT
+	EN	Logout
+
+PLUGIN_ICKSTREAM_PLAYERS_REFRESH
+	EN	Refresh
+
 PLUGIN_ICKSTREAM_CLOSE_WINDOW
 	EN	Close
 

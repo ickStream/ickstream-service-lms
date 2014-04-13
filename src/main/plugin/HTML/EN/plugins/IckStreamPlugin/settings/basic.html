@@ -29,7 +29,34 @@
                 </select>
         [% END %]
         [% IF authenticationUrl %]
-                <a target="_blank" href="[% authenticationUrl %]">[% 'PLUGIN_ICKSTREAM_LOGIN_TO_ICKSTREAM' | string %]</a>
+	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_CLOUD_SERVICE" desc="PLUGIN_ICKSTREAM_CLOUD_SERVICE_DESC" %]
+	        	[% IF authenticationName %]
+	                <a target="_blank" href="[% authenticationUrl %]">[% 'PLUGIN_ICKSTREAM_LOGGED_IN_AS' | string %] [% authenticationName %]</a>
+	            [% ELSE %]
+	                <a target="_blank" href="[% authenticationUrl %]">[% 'PLUGIN_ICKSTREAM_LOGIN_TO_ICKSTREAM' | string %]</a>
+	            [% END %]
+	            <input name="refresh_account" type="submit" class="stdclick" value="[% "PLUGIN_ICKSTREAM_CLOUD_SERVICE_REFRESH" | string %]">
+	        	[% IF authenticationName %]
+	            <input name="logout" type="submit" class="stdclick" value="[% "PLUGIN_ICKSTREAM_CLOUD_SERVICE_LOGOUT" | string %]">
+	            [% END %]
+	            [% IF manageAccountUrl %]
+		            <BR/><BR/>
+		            <a target="_blank" href="[% manageAccountUrl %]">[% 'PLUGIN_ICKSTREAM_CLOUD_ACCOUNT_MANAGEMENT' | string %]</a>
+		        [% END %]
+	        [% END %]
         [% END %]
+        [% IF authenticationName %]
+	       	[% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYERS" desc="PLUGIN_ICKSTREAM_PLAYERS_DESC" %]
+		        [% IF initializedPlayers %]
+					[% FOREACH player IN initializedPlayers %]
+						[% player.name %]<BR/>
+					[% END %]
+				[% ELSE %]
+					[% 'PLUGIN_ICKSTREAM_PLAYERS_NONE' | string %]
+				[% END %]
+				<BR/>
+	            <input name="refresh_players" type="submit" class="stdclick" value="[% "PLUGIN_ICKSTREAM_PLAYERS_REFRESH" | string %]">
+			[% END %]
+		[% END %]
 
 [% PROCESS settings/footer.html %]

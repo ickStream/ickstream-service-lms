@@ -66,6 +66,12 @@ sub playerChange {
 		}
 }
 
+sub isPlayerInitialized {
+	my $player = shift;
+	
+	return defined($initializedPlayers->{$player->id});
+}
+
 sub initializePlayer {
 	my $player = shift;
 	
@@ -93,8 +99,7 @@ sub initializePlayer {
 					sub {
 						$initializedPlayers->{$player->id()} = 1;
 						$log->info("Successfully initialized ".$player->name());
-						Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 1, \&updateAddressOfPlayer,$player);
-	
+						updateAddressOrRegisterPlayer($player);
 					},
 					sub {
 						$initializedPlayers->{$player->id()} = undef;
@@ -103,18 +108,11 @@ sub initializePlayer {
 					$params
 				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
 			}else {
-				Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 1, \&updateAddressOfPlayer,$player);
+				updateAddressOrRegisterPlayer($player);
 			}
 
 		}
 	}
-}
-
-sub updateAddressOfPlayer {
-	my $timer = shift;
-	my $player = shift;
-	
-	updateAddressOrRegisterPlayer($player);
 }
 
 sub uninitializePlayer {
@@ -132,8 +130,10 @@ sub uninitializePlayer {
 					$log->info("Successfully removed ".$player->name());
 				},
 				sub {
+					my $http = shift;
 					$initializedPlayers->{$player->id()} = undef;
-					$log->warn("Error when removing ".$player->name());
+					use Data::Dumper;
+					$log->warn("Error when removing ".$player->name()." ".Dumper($http));
 				},
 				$params
 			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
@@ -156,6 +156,10 @@ sub updateAddressOrRegisterPlayer {
 	if(!defined($playerConfiguration->{'accessToken'})) {
 		registerPlayer($cloudCoreUrl, $player);
 	}else {
+		if(!main::ISWINDOWS && !isPlayerInitialized($player)) {
+			initializePlayer($player);
+			return;
+		}
 		my $uuid = $playerConfiguration->{'uuid'};
 		my $serverIP = Slim::Utils::IPDetect::IP();
 		$log->debug("Trying to set player address in cloud to verify if its access token works");
