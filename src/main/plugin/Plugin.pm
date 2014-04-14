@@ -95,6 +95,7 @@ sub initPlugin {
 	$KEY = Slim::Utils::PluginManager->dataForPlugin($class)->{'id'};
 	
 	Plugins::IckStreamPlugin::ContentAccessService::init($class);
+	Plugins::IckStreamPlugin::BrowseManager::init();
 	Plugins::IckStreamPlugin::Settings->new($class);
 	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServers,$class);
 	

@@ -95,6 +95,109 @@ sub getOffset {
 	return $index;
 }
 
+sub init {
+	my $accessToken = $prefs->get('accessToken');
+	if(defined($accessToken)) {
+		my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		my $requestParams = to_json({
+					'jsonrpc' => '2.0',
+					'id' => 1,
+					'method' => 'findServices',
+					'params' => {
+						'type' => 'content'
+					}
+				});
+		$log->info("Retrieve content services from cloud");
+		Slim::Networking::SimpleAsyncHTTP->new(
+			sub {
+				my $http = shift;
+				my $jsonResponse = from_json($http->content);
+				$cloudServiceEntries = {};
+				my @services = ();
+				if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
+					foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
+						if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
+							foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
+								$cloudServiceEntries->{$service->{'id'}} = $service;
+							}
+						}
+						getProtocolDescription(undef, $service->{'id'},
+							sub {
+								my $serviceId = shift;
+								my $protocolDescription = shift;
+
+								foreach my $context (@{$protocolDescription->{'items'}}) {
+									my @searchTypes = ();
+									foreach my $request (@{$context->{'supportedRequests'}}) {
+										my $supported = undef;
+										foreach my $parameters (@{$request->{'parameters'}}) {
+											my $unsupported = undef;
+											foreach my $parameter (@{$parameters}) {
+												if($parameter ne 'contextId' && $parameter ne 'type' && $parameter ne 'search') {
+													$unsupported = 1;
+													last;
+												}
+											}
+											if(!$unsupported && scalar(@{$parameters})==3) {
+												$supported = 1;
+												last;
+											}
+										}
+										if($supported) {
+											push @searchTypes, $request->{'type'};
+										}
+									}
+									if(scalar(@searchTypes)>0) {
+										$log->debug("Added search provider for: ".$service->{'name'}. " in ".$context->{'name'});
+										Slim::Menu::GlobalSearch->registerInfoProvider( 'ickstream_'.$service->{'id'}."_".$context->{'contextId'} => (
+								                func => sub {
+								                	my ( $client, $tags ) = @_;
+								                	return searchMenu($client,$tags,$service, $context->{'contextId'},\@searchTypes);
+								                }
+										) );
+									}
+								}
+							},
+							sub {
+								$log->info("Failed to retrieve content services from cloud");
+							});
+					}
+				}else {
+					$log->warn("Error: ".Dumper($jsonResponse));
+				}
+			},
+			sub {
+				$log->info("Failed to retrieve content services from cloud");
+			},
+			undef
+		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);
+
+	}
+}
+
+sub searchMenu {
+	my $client = shift;
+	my $tags = shift;
+	my $service = shift;
+	my $contextId = shift;
+	my $searchTypes = shift;
+	
+	my @result = ();
+	foreach my $type (@$searchTypes) {
+		my $menu = {
+			name => getNameForType(undef,$type),
+			url => \&searchItemMenu,
+			passthrough => [$service->{'id'},$contextId, $type,$tags->{search}]
+		};
+		push @result,$menu;
+	}
+	return {
+		name => $service->{'name'}." via ickStream",
+		items => \@result
+	};
+	
+}
+
 sub topLevel {
         my ($client, $cb, $args) = @_;
         
@@ -108,7 +211,7 @@ sub topLevel {
                         type => 'textarea',
                 }]});
 		}else {
-				my $cloudCoreUrl = 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+				my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 				my $requestParams = to_json({
 							'jsonrpc' => '2.0',
 							'id' => 1,
@@ -233,6 +336,7 @@ sub serviceContextMenu {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
 				my @menus = ();
+				my $searchItem = 0;
 				if($protocolDescription->{'items'}) {
 					foreach my $context (@{$protocolDescription->{'items'}}) {
 						my $supported = undef;
@@ -266,9 +370,52 @@ sub serviceContextMenu {
 							push @menus,$menu;
 						}
 					}
+					
+					foreach my $context (@{$protocolDescription->{'items'}}) {
+						my @searchTypes = ();
+						foreach my $request (@{$context->{'supportedRequests'}}) {
+							foreach my $parameters (@{$request->{'parameters'}}) {
+								my $unsupported = undef;
+								foreach my $parameter (@{$parameters}) {
+									if($parameter ne 'contextId' && $parameter ne 'type' && $parameter ne 'search') {
+										$unsupported = 1;
+										last;
+									}
+								}
+								if(!$unsupported && scalar(@{$parameters})==3) {
+									push @searchTypes, $request->{'type'};
+									last;
+								}
+							}
+						}
+						if(scalar(@searchTypes)>0) {
+							my $service = $cloudServiceEntries->{$serviceId};
+							$log->debug("Creating search menu for: ".$service->{'name'});
+							my $menu = {
+								'name' => cstring($client, 'SEARCH'),
+								'type' => 'search',
+								'url' => sub {
+									my ($client, $cb, $params) = @_;
+									
+									my $searchMenu = searchMenu($client, {
+											search => lc($params->{search})
+										},
+										$cloudServiceEntries->{$serviceId},
+										$context->{'contextId'},
+										\@searchTypes);
+									
+									$cb->({
+										items => $searchMenu->{items}
+									});
+								}
+							};
+							push @menus,$menu;
+							$searchItem = 1;
+						}
+					}
 				}
 				if(scalar(@menus)>0) {
-					if(scalar(@menus)==1) {
+					if(scalar(@menus)==1 && !$searchItem) {
 						serviceTypeMenu($client, $cb, $args, $serviceId, @menus[0]->{'passthrough'}[1]);
 					}else {
 						my $resultItems = sliceResult(\@menus,$args);
@@ -557,6 +704,149 @@ sub serviceItemMenu {
 				type => 'textarea',
                }]);
 		});
+	}
+}
+
+sub searchItemMenu {
+	my ($client, $cb, $args, $serviceId, $contextId, $type, $search) = @_;
+	
+	my $accessToken = getAccessToken($client);
+	if(!defined($accessToken)) {
+		$cb->({items => [{
+                       name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
+                       type => 'textarea',
+               }]});
+	}else {
+			my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+			my $params = {
+				'contextId' => $contextId,
+				'type' => $type,
+				'search' => $search
+			};
+			if(defined($args->{'quantity'}) && $args->{'quantity'} ne "") {
+				$params->{'count'} = int($args->{'quantity'});
+			}
+			if(defined($args->{'index'}) && $args->{'index'} ne "") {
+				$params->{'offset'} = int($args->{'index'});
+			}else {
+				$params->{'offset'} = 0;
+			}
+			my $requestParams = to_json({
+						'jsonrpc' => '2.0',
+						'id' => 1,
+						'method' => 'findItems',
+						'params' => $params
+					});
+			$log->debug("Using: ".Dumper($requestParams));
+			my $cacheKey = "$accessToken.$serviceId.$requestParams";
+			$log->debug("Check cache with key: ".$cacheKey);
+			if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
+				$log->debug("Using cached items from: $serviceUrl for: ".Dumper($args));
+				my $resultItems = sliceResult($cache{$cacheKey}->{'data'},$args,0);
+				if(defined($cache{$cacheKey}->{'total'})) {
+					$log->debug("Returning: ".scalar(@$resultItems). " items of ".$cache{$cacheKey}->{'total'});
+					$cb->({items => $resultItems, total => $cache{$cacheKey}->{'total'}, offset => getOffset($args)});
+				}else {
+					$log->debug("Returning: ".scalar(@$resultItems). " items");
+					$cb->({items => $resultItems, offset => getOffset($args)});
+				}
+				return;
+			}
+			$log->info("Search $type from: $serviceUrl");
+			Slim::Networking::SimpleAsyncHTTP->new(
+				sub {
+					my $http = shift;
+					my $jsonResponse = from_json($http->content);
+					my @menus = ();
+					my $totalItems = undef;
+					if($jsonResponse->{'result'}) {
+						if(defined($jsonResponse->{'result'}->{'countAll'})) {
+							$totalItems =$jsonResponse->{'result'}->{'countAll'};
+						}
+						foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
+							my $menu = {
+								'name' => $item->{'text'},
+								'passthrough' => [
+									$serviceId,
+									$contextId,
+									{
+										'type' => $item->{'type'},
+										'id' => $item->{'id'},
+										'preferredChildItems' => $item->{'preferredChildItems'},
+										'parent' => undef
+									}
+								]
+							};
+							if(defined($item->{'image'})) {
+								$menu->{'image'} = $item->{'image'};
+							}
+							if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
+								$menu->{'url'} = \&serviceItemMenu;
+								if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
+									$menu->{'type'} = 'playlist';
+									if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+										$menu->{'line1'} = $item->{'text'};
+										$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};						
+									}elsif(defined($item->{'itemAttributes'}->{'year'})) {
+										$menu->{'line1'} = $item->{'text'};
+										$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
+									}
+								}
+							}else {
+					        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
+								$menu->{'play'} = 'ickstream://'.$item->{'id'};
+								$menu->{'type'} = 'audio';
+								$menu->{'on_select'} => 'play';
+								$menu->{'playall'} => 1;
+								if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+									$menu->{'line1'} = $item->{'text'};
+									$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'}." - ".$item->{'itemAttributes'}->{'album'}->{'name'};
+								}elsif(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+									$menu->{'line1'} = $item->{'text'};
+									$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};
+								}elsif(defined($item->{'itemAttributes'}->{'album'})) {
+									$menu->{'line1'} = $item->{'text'};
+									$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
+								}
+									
+							}
+							push @menus,$menu;
+						}
+						$log->debug("Got ".scalar(@menus)." items");
+					}else {
+						$log->warn("Error: ".Dumper($jsonResponse));
+					}
+					if(scalar(@menus)>0) {
+						$log->debug("Store in cache with key: ".$cacheKey);
+						if(defined($totalItems)) {
+							$cache{$cacheKey} = { 'data' =>\@menus, 'total' => $totalItems, 'time' => time()};
+						}else {
+							$cache{$cacheKey} = { 'data' =>\@menus, 'time' => time()};
+						}
+						my $resultItems = sliceResult(\@menus,$args,0);
+						if(defined($totalItems)) {
+							$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
+							$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
+						}else {
+							$log->debug("Returning: ".scalar(@$resultItems). " items");
+							$cb->({items => $resultItems, offset => getOffset($args)});
+						}
+					}else {
+						$cb->({items => [{
+							name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
+							type => 'textarea',
+		                }]});
+					}
+				},
+				sub {
+					$log->info("Failed to retrieve content service items from cloud");
+					$cb->(items => [{
+						name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
+						type => 'textarea',
+	                }]);
+				},
+				undef
+			)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);					
 	}
 }
 
