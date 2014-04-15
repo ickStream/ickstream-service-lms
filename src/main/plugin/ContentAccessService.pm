@@ -139,14 +139,9 @@ sub getProtocolDescription {
 					]
 				};
 
-	my $serverName = $serverPrefs->get('libraryname');
-	if(!defined($serverName) || $serverName eq '') {
-		$serverName = Slim::Utils::Network::hostName();
-	}
-
 	my $myMusicFolderContext = {
 			'contextId' => 'myMusicFolder',
-			'name' => 'Music Folder ('.$serverName.')',
+			'name' => 'Music Folder',
 			'supportedRequests' => [
 				$folderRequests,
 				$folderContentRequests
@@ -157,7 +152,7 @@ sub getProtocolDescription {
 
 	my $myMusicGenresContext = {
 			'contextId' => 'myMusicGenres',
-			'name' => 'Genres ('.$serverName.')',
+			'name' => 'Genres',
 			'supportedRequests' => [
 				$genreRequests
 			]
