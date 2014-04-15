@@ -218,6 +218,7 @@ sub handleAuthenticationFinished {
 															Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
 														}
 													}
+													Plugins::IckStreamPlugin::BrowseManager::init();
 													&{$callback}($client,$params,$output,$httpClient,$response);
 												}else {
 													$log->warn("Failed to register device in cloud: ".Dumper($jsonResponse));
