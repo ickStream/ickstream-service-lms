@@ -352,20 +352,30 @@ sub findItems {
 	
 		my $count = $reqParams->{'count'} if exists($reqParams->{'count'});
 		my $offset = $reqParams->{'offset'} || 0;
-		
+
+		if(defined($reqParams->{'search'})) {
+			if(!defined($count)) {
+				$count = 200 - $offset;
+			}elsif($offset + $count > 200) {
+				$count = $count - ($offset + $count - 200);
+			}
+		}
+
 		my $items = undef;
-		if(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'album') {
-			$items = findAlbums($reqParams,$offset,$count);
-		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'playlist') {
-			$items = findPlaylists($reqParams,$offset,$count);
-		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'artist') {
-			$items = findArtists($reqParams,$offset,$count);
-		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'track') {
-			$items = findTracks($reqParams,$offset,$count);
-		} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'category') {
-			$items = findCategories($reqParams,$offset,$count);
-		} elsif(exists($reqParams->{'contextId'}) && $reqParams->{'contextId'} eq 'myMusicFolder' && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu')) {
-			$items = findFolders($reqParams,$offset,$count);
+		if(!defined($reqParams->{'search'}) || $count>0) {		
+			if(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'album') {
+				$items = findAlbums($reqParams,$offset,$count);
+			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'playlist') {
+				$items = findPlaylists($reqParams,$offset,$count);
+			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'artist') {
+				$items = findArtists($reqParams,$offset,$count);
+			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'track') {
+				$items = findTracks($reqParams,$offset,$count);
+			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'category') {
+				$items = findCategories($reqParams,$offset,$count);
+			} elsif(exists($reqParams->{'contextId'}) && $reqParams->{'contextId'} eq 'myMusicFolder' && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu')) {
+				$items = findFolders($reqParams,$offset,$count);
+			}
 		}
 		
 		my $result;
