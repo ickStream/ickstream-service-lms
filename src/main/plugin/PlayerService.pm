@@ -126,7 +126,9 @@ sub setPlayerConfiguration {
 					$log->info("Successfully updated IP-address in cloud");
 				},
 				sub {
-					$log->info("Failed to update IP-address in cloud");
+					my $http = shift;
+					my $error = shift;
+					$log->warn("Failed to update IP-address in cloud: ".$error);
 					$playerConfiguration = $prefs->get('player_'.$client->id) || {};
 					$playerConfiguration->{'accessToken'} = undef;
 					$prefs->set('player_'.$client->id,$playerConfiguration);
@@ -183,12 +185,14 @@ sub registerPlayer {
 				$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
 				$prefs->set('player_'.$client->id,$playerConfiguration);
 			}else {
-				$log->info("Failed to register player in cloud");
+				$log->warn("Failed to register player in cloud: ".Dumper($jsonResponse));
 			}
 			sendPlayerStatusChangedNotification($client);
 		},
 		sub {
-			$log->info("Failed to register player in cloud");
+			my $http = shift;
+			my $error = shift;
+			$log->warn("Failed to register player in cloud: ".$error);
 			sendPlayerStatusChangedNotification($client);
 		},
 		undef
