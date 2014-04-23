@@ -55,8 +55,6 @@ use Plugins::IckStreamPlugin::BrowseManager;
 use Plugins::IckStreamPlugin::ProtocolHandler;
 use Plugins::IckStreamPlugin::PlayerManager;
 
-my $KEY = undef;
-
 my $log = Slim::Utils::Log->addLogCategory({
 	'category'     => 'plugin.ickstream',
 	'defaultLevel' => 'WARN',
@@ -92,7 +90,6 @@ sub initPlugin {
 		menu => 'radios',
 		weight => 1
 		);
-	$KEY = Slim::Utils::PluginManager->dataForPlugin($class)->{'id'};
 	
 	Plugins::IckStreamPlugin::ContentAccessService::init($class);
 	Plugins::IckStreamPlugin::BrowseManager::init();

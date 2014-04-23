@@ -64,7 +64,7 @@ my %methods = (
 
 sub init {
 	my $plugin = shift;
-	Slim::Utils::PluginManager->dataForPlugin($plugin)->{'id'};
+	$KEY = Slim::Utils::PluginManager->dataForPlugin($plugin)->{'id'};
 }
 
 sub getProtocolDescription {
