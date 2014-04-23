@@ -28,6 +28,7 @@ char* httpRequest(const char* ip, int port, const char* path, const char* author
 	int server_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if(server_socket < 0) {
 		fprintf(stderr, "Unable to open socket: %d\n",server_socket);
+        fflush (stderr);
 		goto httpRequest_end;
 	}
 
@@ -37,6 +38,7 @@ char* httpRequest(const char* ip, int port, const char* path, const char* author
 	server_addr->sin_port = htons(port);
 	if(inet_pton(AF_INET,ip,(void *)(&(server_addr->sin_addr.s_addr))) <= 0) {
 		fprintf(stderr,"Unable to convert string IP to byte IP using inet_pton\n");
+        fflush (stderr);
 		goto httpRequest_end;
 	}
 	bzero(&(server_addr->sin_zero), 8);
@@ -51,6 +53,7 @@ char* httpRequest(const char* ip, int port, const char* path, const char* author
 		sizeof(struct sockaddr));
 	if(rc < 0) {
 		fprintf(stderr, "Fail to connect to socket: %d\n",errno);
+        fflush (stderr);
 		goto httpRequest_end;
 	}
 	char *requestHeader;
@@ -70,6 +73,7 @@ char* httpRequest(const char* ip, int port, const char* path, const char* author
 		int bytes_sent = send(server_socket, request, strlen(request), 0);
 		if(bytes_sent < 0) {
 			fprintf(stderr, "Error when forwarding request data: %d\n",bytes_sent);
+	        fflush (stderr);
 			goto httpRequest_end;
 		}
 		sent = sent + bytes_sent;
@@ -88,11 +92,13 @@ char* httpRequest(const char* ip, int port, const char* path, const char* author
 			total_bytes_received += bytes_received;
 		}else {
 			fprintf(stderr, "Error allocating memory for response via HTTP\n");
+	        fflush (stderr);
 			goto httpRequest_end;
 		}
 	}
 	if(bytes_received<0) {
 			fprintf(stderr, "Error reading response via HTTP: %d\n",errno);
+	        fflush (stderr);
 	}
 
 	//printf("Finished reading, total=%d, last=%d\n",total_bytes_received,bytes_received);
@@ -151,6 +157,7 @@ void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServic
         ickErrcode_t error = ickP2pSendMsg(ictx,szSourceDeviceId, sourceService,ICKP2P_SERVICE_SERVER_GENERIC,response, strlen(response));
         if(error != ICKERR_SUCCESS) {
     		fprintf(stderr,"Failed to send response=%d\n",(int)error);
+	        fflush (stderr);
     	}
     }
 	if(response != NULL) {
@@ -248,24 +255,31 @@ int main( int argc, char *argv[] )
 	if(error == ICKERR_SUCCESS) {
     	error = ickP2pRegisterMessageCallback(g_context, &messageCb);
     	if(error != ICKERR_SUCCESS) {
-    		printf("ickP2pRegisterMessageCallback failed=%d\n",(int)error);
+    		fprintf(stderr, "ickP2pRegisterMessageCallback failed=%d\n",(int)error);
+	        fflush (stderr);
     	}
     	error = ickP2pRegisterDiscoveryCallback(g_context, &discoveryCb);
     	if(error != ICKERR_SUCCESS) {
-    		printf("ickP2pRegisterDiscoveryCallback failed=%d\n",(int)error);
+    		fprintf(stderr, "ickP2pRegisterDiscoveryCallback failed=%d\n",(int)error);
+	        fflush (stderr);
     	}
 #ifdef ICK_DEBUG
 	    ickP2pSetHttpDebugging(g_context,1);
 #endif
 		error = ickP2pAddInterface(g_context, networkAddress, NULL);
     	if(error != ICKERR_SUCCESS) {
-    		printf("ickP2pAddInterface failed=%d\n",(int)error);
+    		fprintf(stderr, "ickP2pAddInterface failed=%d\n",(int)error);
+	        fflush (stderr);
     	}
     	error = ickP2pResume(g_context);
     	if(error != ICKERR_SUCCESS) {
-    		printf("ickP2pResume failed=%d\n",(int)error);
+    		fprintf(stderr, "ickP2pResume failed=%d\n",(int)error);
+	        fflush (stderr);
     	}
 		
+	}else {
+   		fprintf(stderr, "ickP2pCreate failed=%d\n",(int)error);
+        fflush (stderr);
 	}
 	fflush (stdout);
 
