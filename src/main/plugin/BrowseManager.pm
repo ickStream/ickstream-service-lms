@@ -98,7 +98,7 @@ sub getOffset {
 sub init {
 	my $accessToken = $prefs->get('accessToken');
 	if(defined($accessToken)) {
-		my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 		my $requestParams = to_json({
 					'jsonrpc' => '2.0',
 					'id' => 1,
@@ -159,7 +159,7 @@ sub init {
 								}
 							},
 							sub {
-								$log->info("Failed to retrieve content services from cloud");
+								$log->warn("Failed to retrieve content services from cloud");
 							});
 					}
 				}else {
@@ -167,7 +167,9 @@ sub init {
 				}
 			},
 			sub {
-				$log->info("Failed to retrieve content services from cloud");
+				my $http = shift;
+				my $error = shift;
+				$log->warn("Failed to retrieve content services from cloud: ".$error);
 			},
 			undef
 		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);
@@ -211,7 +213,8 @@ sub topLevel {
                         type => 'textarea',
                 }]});
 		}else {
-				my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+				my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+				my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 				my $requestParams = to_json({
 							'jsonrpc' => '2.0',
 							'id' => 1,
@@ -229,7 +232,7 @@ sub topLevel {
 					$cb->({items => $resultItems, offset => getOffset($args)});
 					return;
 				}
-				$log->info("Retrieve content services from cloud");
+				$log->info("Retrieve content services from cloud using ".$cloudCoreUrl);
 				Slim::Networking::SimpleAsyncHTTP->new(
 							sub {
 								my $http = shift;
@@ -264,7 +267,9 @@ sub topLevel {
 								}
 							},
 							sub {
-								$log->info("Failed to retrieve content services from cloud");
+								my $http = shift;
+								my $error = shift;
+								$log->warn("Failed to retrieve content services from cloud: ".$error);
 								$cb->(items => [{
 									name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
 									type => 'textarea',
@@ -284,6 +289,11 @@ sub getProtocolDescription {
 	
 	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
+		if(defined($client)) {
+			$log->warn("Player ".$client->name()." isn't registered");
+		}else {
+			$log->warn("This LMS isn't registered");
+		}
 		&{$errorCb}($serviceId);
 	}
 
@@ -302,12 +312,14 @@ sub getProtocolDescription {
 							$cloudServiceProtocolEntries->{$serviceId} = $jsonResponse->{'result'};
 							&{$successCb}($serviceId,$cloudServiceProtocolEntries->{$serviceId});
 						}else {
-							$log->info("Failed to retrieve protocol description for ".$serviceId.": ".Dumper($jsonResponse));
+							$log->warn("Failed to retrieve protocol description for ".$serviceId.": ".Dumper($jsonResponse));
 							&{$errorCb}($serviceId);
 						}
 					},
 					sub {
-						$log->info("Failed to retrieve protocol description for ".$serviceId);
+						my $http = shift;
+						my $error = shift;
+						$log->warn("Failed to retrieve protocol description for ".$serviceId.": ".$error);
 						&{$errorCb}($serviceId);
 					},
 					undef
@@ -430,7 +442,7 @@ sub serviceContextMenu {
 				}
 			},
 			sub {
-				$log->info("Failed to retrieve content services from cloud");
+				$log->warn("Failed to retrieve content services from cloud");
 				$cb->(items => [{
 					name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
 					type => 'textarea',
@@ -530,7 +542,7 @@ sub serviceTypeMenu {
 				}
 			},
 			sub {
-				$log->info("Failed to retrieve content services from cloud");
+				$log->warn("Failed to retrieve content services from cloud");
 				$cb->(items => [{
 					name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
 					type => 'textarea',
@@ -688,7 +700,9 @@ sub serviceItemMenu {
 								}
 							},
 							sub {
-								$log->info("Failed to retrieve content service items from cloud");
+								my $http = shift;
+								my $error = shift;
+								$log->warn("Failed to retrieve content service items from cloud: ".$error);
 								$cb->(items => [{
 									name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
 									type => 'textarea',
@@ -698,7 +712,7 @@ sub serviceItemMenu {
 						)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);					
 		},
 		sub {
-			$log->info("Failed to retrieve content services from cloud");
+			$log->warn("Failed to retrieve content services from cloud");
 			$cb->(items => [{
 				name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE__REQUIRES_CREDENTIALS'),
 				type => 'textarea',
@@ -839,7 +853,9 @@ sub searchItemMenu {
 					}
 				},
 				sub {
-					$log->info("Failed to retrieve content service items from cloud");
+					my $http = shift;
+					my $error = shift;
+					$log->warn("Failed to retrieve content service items from cloud: ".$error);
 					$cb->(items => [{
 						name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
 						type => 'textarea',

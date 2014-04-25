@@ -105,7 +105,7 @@ sub handler {
 	
 	if($prefs->get('accessToken')) {
 		$params->{'manageAccountUrl'} = 'https://api.ickstream.com';
-		my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				my $http = shift;
@@ -186,7 +186,7 @@ sub handleAuthenticationFinished {
 				if(defined($jsonResponse->{'access_token'})) {
 					$log->info("Successfully authenticated user");
 					
-					my $cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+					my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 					$log->info("Register LMS as controller device");
 					my $uuid = $prefs->get('controller_uuid');
 					if(!defined($uuid)) {

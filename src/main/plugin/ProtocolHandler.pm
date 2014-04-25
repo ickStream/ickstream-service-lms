@@ -37,6 +37,8 @@ use JSON::XS::VersionOneAndTwo;
 use Data::Dumper;
 use Plugins::IckStreamPlugin::ItemCache;
 use Plugins::IckStreamPlugin::Plugin;
+use Plugins::IckStreamPlugin::CloudServiceManager;
+
 
 my $log = Slim::Utils::Log->addLogCategory({
 	'category'     => 'plugin.ickstream.protocol',
@@ -210,100 +212,113 @@ sub _getTrack {
 	}else {
 		my $httpParams = { timeout => 35 };
 		my $uuid = $playerConfiguration->{'id'};
-		my $serviceUrl = _getUrlForService($serviceId);
 		my $serverIP = Slim::Utils::IPDetect::IP();
 		if(!$meta) {
-			$log->info("Getting metadata for ".$trackId." for ".$client->name());
-			
-			Slim::Networking::SimpleAsyncHTTP->new(
+			Plugins::IckStreamPlugin::CloudServiceManager::getService($client, $serviceId,
 				sub {
-					my $http = shift;
-					my $jsonResponse = from_json($http->content);
-					main::DEBUGLOG && $log->debug(Dumper($http->content));
-					if($jsonResponse && $jsonResponse->{'result'}) {
-						$log->info("Successfully retrieved metadata for ".$client->name());
-						my $info = $jsonResponse->{'result'};
-						if(defined($info->{'streamingRefs'}) && $info->{'streamingRefs'}->[0]->{'url'}) {
-							_gotTrack( $info, $info->{'streamingRefs'}->[0], undef, $params );
-						}else {
-							$log->info("Getting stream for ".$trackId." for ".$client->name());
-							Slim::Networking::SimpleAsyncHTTP->new(
-								sub {
-									my $http = shift;
-									my $jsonResponse = from_json($http->content);
-									main::DEBUGLOG && $log->debug(Dumper($http->content));
-									if($jsonResponse && $jsonResponse->{'result'}) {
-										$log->info("Successfully retrieved stream ".$trackId." for ".$client->name());
-										_gotTrack( $info, $jsonResponse->{'result'}, undef, $params );
-									}else {
-										$log->warn("Failed to retrieve stream for ".$client->name());
-										_gotTrackError("getTrack failed in getItemStreamingRef: ".$trackId, $params);
-									}
-								},
-								sub {
-									$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name());
-									_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
-								},
-								undef
-							)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
-								'jsonrpc' => '2.0',
-								'id' => 1,
-								'method' => 'getItemStreamingRef',
-								'params' => {
-									'contextId' => 'allMusic',
-									'itemId' => $trackId
+					my $serviceUrl = Plugins::IckStreamPlugin::CloudServiceManager::getServiceUrl($client, $serviceId);
+					$log->info("Getting metadata for ".$trackId." for ".$client->name());
+					
+					Slim::Networking::SimpleAsyncHTTP->new(
+						sub {
+							my $http = shift;
+							my $jsonResponse = from_json($http->content);
+							main::DEBUGLOG && $log->debug(Dumper($http->content));
+							if($jsonResponse && $jsonResponse->{'result'}) {
+								$log->info("Successfully retrieved metadata for ".$client->name());
+								my $info = $jsonResponse->{'result'};
+								if(defined($info->{'streamingRefs'}) && $info->{'streamingRefs'}->[0]->{'url'}) {
+									_gotTrack( $info, $info->{'streamingRefs'}->[0], undef, $params );
+								}else {
+									$log->info("Getting stream for ".$trackId." for ".$client->name());
+									Slim::Networking::SimpleAsyncHTTP->new(
+										sub {
+											my $http = shift;
+											my $jsonResponse = from_json($http->content);
+											main::DEBUGLOG && $log->debug(Dumper($http->content));
+											if($jsonResponse && $jsonResponse->{'result'}) {
+												$log->info("Successfully retrieved stream ".$trackId." for ".$client->name());
+												_gotTrack( $info, $jsonResponse->{'result'}, undef, $params );
+											}else {
+												$log->warn("Failed to retrieve stream for ".$client->name().": ".Dumper($jsonResponse));
+												_gotTrackError("getTrack failed in getItemStreamingRef: ".$trackId, $params);
+											}
+										},
+										sub {
+											my $http = shift;
+											my $error = shift;
+											$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name().": ".$error);
+											_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
+										},
+										undef
+									)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
+										'jsonrpc' => '2.0',
+										'id' => 1,
+										'method' => 'getItemStreamingRef',
+										'params' => {
+											'contextId' => 'allMusic',
+											'itemId' => $trackId
+										}
+									}));
 								}
-							}));
+							}else {
+								main::DEBUGLOG && $log->debug(Dumper($http->content));
+								$log->warn("Failed to retrieve metadata for ".$client->name().": ".Dumper($jsonResponse));
+								_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
+							}
+						},
+						sub {
+							my $http = shift;
+							my $error = shift;
+							$log->warn("Failed to retrieve metadata for ".$client->name().": ".$error);
+							_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
+						},
+						undef
+					)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
+						'jsonrpc' => '2.0',
+						'id' => 1,
+						'method' => 'getItem',
+						'params' => {
+							'contextId' => 'allMusic',
+							'itemId' => $trackId
 						}
-					}else {
-						main::DEBUGLOG && $log->debug(Dumper($http->content));
-						$log->warn("Failed to retrieve metadata for ".$client->name());
-						_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
-					}
-				},
-				sub {
-					$log->warn("Failed to retrieve metadata for ".$client->name());
-					_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
-				},
-				undef
-			)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
-				'jsonrpc' => '2.0',
-				'id' => 1,
-				'method' => 'getItem',
-				'params' => {
-					'contextId' => 'allMusic',
-					'itemId' => $trackId
-				}
-			}));
+					}));
+				});
 		}elsif(!defined($meta->{'url'})) {
-			$log->info("Getting stream for ".$trackId." for ".$client->name());
-			Slim::Networking::SimpleAsyncHTTP->new(
+			Plugins::IckStreamPlugin::CloudServiceManager::getService($client, $serviceId,
 				sub {
-					my $http = shift;
-					my $jsonResponse = from_json($http->content);
-					main::DEBUGLOG && $log->debug(Dumper($http->content));
-					if($jsonResponse && $jsonResponse->{'result'}) {
-						$log->info("Successfully retrieved stream ".$trackId." for ".$client->name());
-						_gotTrack( undef, $jsonResponse->{'result'}, $meta, $params );
-					}else {
-						$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name());
-						_gotTrackError("getTrack failed in getItemStreamingRef: ".$trackId, $params);
-					}
-				},
-				sub {
-					$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name());
-					_gotTrackError("getTrack failed in getItemStreamingRef: ".$trackId, $params);
-				},
-				undef
-			)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
-				'jsonrpc' => '2.0',
-				'id' => 1,
-				'method' => 'getItemStreamingRef',
-				'params' => {
-					'contextId' => 'allMusic',
-					'itemId' => $trackId
-				}
-			}));
+					my $serviceUrl = Plugins::IckStreamPlugin::CloudServiceManager::getServiceUrl($client, $serviceId);
+					$log->info("Getting stream for ".$trackId." for ".$client->name());
+					Slim::Networking::SimpleAsyncHTTP->new(
+						sub {
+							my $http = shift;
+							my $jsonResponse = from_json($http->content);
+							main::DEBUGLOG && $log->debug(Dumper($http->content));
+							if($jsonResponse && $jsonResponse->{'result'}) {
+								$log->info("Successfully retrieved stream ".$trackId." for ".$client->name());
+								_gotTrack( undef, $jsonResponse->{'result'}, $meta, $params );
+							}else {
+								$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name().": ".Dumper($jsonResponse));
+								_gotTrackError("getTrack failed in getItemStreamingRef: ".$trackId, $params);
+							}
+						},
+						sub {
+							my $http = shift;
+							my $error = shift;
+							$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name().": ".$error);
+							_gotTrackError("getTrack failed in getItemStreamingRef: ".$trackId, $params);
+						},
+						undef
+					)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
+						'jsonrpc' => '2.0',
+						'id' => 1,
+						'method' => 'getItemStreamingRef',
+						'params' => {
+							'contextId' => 'allMusic',
+							'itemId' => $trackId
+						}
+					}));
+				});
 		}else {
 			_gotTrack(undef,undef,$meta,$params);
 		}
@@ -338,7 +353,9 @@ sub responseCallback {
 						$log->warn("Successfully sent getItemStreamingRef request");
 					},
 					sub {
-						$log->warn("Error when sending getItemStreamingRef request");
+						my $http = shift;
+						my $error = shift;
+						$log->warn("Error when sending getItemStreamingRef request: ".$error);
 					},
 					$httpParams
 				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/sendMessage/".$serviceId."/2",'Content-Type' => 'application/json','Authorization'=>$playerConfiguration->{'id'},to_json({
@@ -352,7 +369,7 @@ sub responseCallback {
 				}));
 			}
 		}else {
-			$log->warn("Failed to metadata stream for ".$trackId);
+			$log->warn("Failed to metadata stream for ".$trackId.": ".Dumper($jsonResponse));
 			_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
 		}
 		return 1;
@@ -372,7 +389,7 @@ sub responseCallback {
 				_gotTrack( undef, $jsonResponse->{'result'}, $params->{'meta'}, $params );
 			}
 		}else {
-			$log->warn("Failed to retrieve stream for ".$trackId);
+			$log->warn("Failed to retrieve stream for ".$trackId.": ".Dumper($jsonResponse));
 			_gotTrackError("getTrack failed in getItemStreamingRef: ".$params->{'item'}->{'id'}, $params);
 		}
 		return 1;
@@ -418,9 +435,6 @@ sub _gotTrack {
 	}elsif(defined($streamingRef)) {
 		$meta = Plugins::IckStreamPlugin::ItemCache::setItemStreamingRefInCache($trackId, $meta, $streamingRef);
 	}
-	if(defined($meta->{'format'})) {
-		Slim::Music::Info::setContentType($params->{url},Slim::Music::Info::mimeToType($meta->{'format'}));
-	}
 
 	if(defined($meta->{'cover'}) && $meta->{'cover'} =~ /^service:\/\//) {
 		$meta->{'cover'} = Plugins::IckStreamPlugin::LocalServiceManager::resolveServiceUrl($serviceId,$meta->{'cover'});	
@@ -446,9 +460,11 @@ sub formatOverride {
 	my $meta = Plugins::IckStreamPlugin::ItemCache::getItemFromCache($trackId);
 	$log->debug("Cached meta for ".$trackId.": ".Dumper($meta));
 	if($meta && $meta->{'format'}) {
-		return Slim::Music::Info::mimeToType($meta->{'format'});
+		my $format = Slim::Music::Info::mimeToType($meta->{'format'});
+		$log->debug("formatOverride = $format");
+		return $format;
 	}else {
-		$log->debug("Returning default format");
+		$log->debug("formatOverride = mp3 (default)");
 		return 'mp3';
 	}	
 }
@@ -468,7 +484,9 @@ sub canDirectStreamSong {
 	main::DEBUGLOG && $log->debug("canDirectStreamSong(".$class.",".$client.",".$song->track->url().",".$song->streamUrl().")");
 	# We need to check with the base class (HTTP) to see if we
 	# are synced or if the user has set mp3StreamingMethod
-	return $class->SUPER::canDirectStream( $client, $song->streamUrl(), $class->getFormatForURL($song->track->url()) );
+	my $url = $class->SUPER::canDirectStream( $client, $song->streamUrl(), $class->getFormatForURL($song->track->url()) );
+	$log->debug("canDirectStreamSong: ".$url);
+	return $url;
 }
 
 sub getFormatForURL {
@@ -479,22 +497,16 @@ sub getFormatForURL {
 
 	my $meta = Plugins::IckStreamPlugin::ItemCache::getItemFromCache($trackId);
 	if($meta && $meta->{'format'}) {
-		return Slim::Music::Info::mimeToType($meta->{'format'});
+		my $format = Slim::Music::Info::mimeToType($meta->{'format'});
+		$log->debug("getFormatForURL = ".$format);
+		return $format;
 	}else {
+		$log->debug("getFormatForURL = mp3 (default)");
 		return 'mp3';
 	}
 }
 
 
-
-sub _getUrlForService {
-	my ($serviceId) = @_;
-
-	#my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc';
-	my $serviceUrl = 'http://api.ickstream.com/ickstream-cloud-'.$serviceId.'/jsonrpc';
-
-	return $serviceUrl;
-}
 
 # Metadata for a URL, used by CLI/JSON clients
 sub getMetadataFor {
@@ -514,40 +526,45 @@ sub getMetadataFor {
 		my $httpParams = { timeout => 35 };
 		my $playerConfiguration = $prefs->get('player_'.$client->id()) || {};
 		my $uuid = $playerConfiguration->{'id'};
-		my $serviceUrl = _getUrlForService($serviceId);
-		my $serverIP = Slim::Utils::IPDetect::IP();
-	
-		$log->info("Getting metadata for ".$trackId." for ".$client->name());
-		Slim::Networking::SimpleAsyncHTTP->new(
+		Plugins::IckStreamPlugin::CloudServiceManager::getService($client,$serviceId,
 			sub {
-				my $http = shift;
-				$client->master->pluginData('ickStreamFetchingMeta-'.$trackId => 0);
-				main::DEBUGLOG && $log->debug(Dumper($http->content));
-				my $jsonResponse = from_json($http->content);
-				if($jsonResponse && $jsonResponse->{'result'}) {
-					$log->info("Successfully retrieved metadata for ".$trackId." on ".$client->name());
-					my $info = $jsonResponse->{'result'};
-					my $icon = Plugins::IckStreamPlugin::Plugin->_pluginDataFor('icon');
-
-					Plugins::IckStreamPlugin::ItemCache::setItemInCache($info->{id},$info);					        
-				}else {
-					$log->warn("Failed to retrieve metadata for ".$trackId." on ".$client->name());
-				}
-			},
-			sub {
-				$client->master->pluginData('ickStreamFetchingMeta-'.$trackId => 0);
-				$log->warn("Failed to retrieve metadata for ".$trackId." on ".$client->name());
-			},
-			undef
-		)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
-			'jsonrpc' => '2.0',
-			'id' => 1,
-			'method' => 'getItem',
-			'params' => {
-				'contextId' => 'allMusic',
-				'itemId' => $trackId
-			}
-		}));
+				my $serviceUrl = Plugins::IckStreamPlugin::CloudServiceManager::getServiceUrl($client, $serviceId);
+				my $serverIP = Slim::Utils::IPDetect::IP();
+			
+				$log->info("Getting metadata for ".$trackId." for ".$client->name());
+				Slim::Networking::SimpleAsyncHTTP->new(
+					sub {
+						my $http = shift;
+						$client->master->pluginData('ickStreamFetchingMeta-'.$trackId => 0);
+						main::DEBUGLOG && $log->debug(Dumper($http->content));
+						my $jsonResponse = from_json($http->content);
+						if($jsonResponse && $jsonResponse->{'result'}) {
+							$log->info("Successfully retrieved metadata for ".$trackId." on ".$client->name());
+							my $info = $jsonResponse->{'result'};
+							my $icon = Plugins::IckStreamPlugin::Plugin->_pluginDataFor('icon');
+		
+							Plugins::IckStreamPlugin::ItemCache::setItemInCache($info->{id},$info);					        
+						}else {
+							$log->warn("Failed to retrieve metadata for ".$trackId." on ".$client->name().": ".Dumper($jsonResponse));
+						}
+					},
+					sub {
+						my $http = shift;
+						my $error = shift;
+						$client->master->pluginData('ickStreamFetchingMeta-'.$trackId => 0);
+						$log->warn("Failed to retrieve metadata for ".$trackId." on ".$client->name().": ".$error);
+					},
+					undef
+				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
+					'jsonrpc' => '2.0',
+					'id' => 1,
+					'method' => 'getItem',
+					'params' => {
+						'contextId' => 'allMusic',
+						'itemId' => $trackId
+					}
+				}));
+			});
 
 	}elsif(!$meta) {
 		#$log->debug("Already fetching metadata for ".$trackId);
