@@ -300,6 +300,15 @@ sub getTopLevelItems {
 	return \@topLevelItems;
 }
 
+sub getLastScannedTime {
+	my $lastScanTime = Slim::Music::Import->lastScanTime;
+	if(!$lastScanTime) {
+		return time();
+	}else {
+		return $lastScanTime;
+	}
+}
+
 sub getItem {
 	my $context = shift;
 
@@ -383,7 +392,7 @@ sub findItems {
 			$result = {
 				'offset' => $offset,
 				'count' => scalar(@$items),
-				'expirationTimestamp' => time()+24*3600,
+				'lastChanged' => getLastScannedTime(),
 				'items' => $items
 			};
 		}else {
@@ -391,7 +400,7 @@ sub findItems {
 			$result = {
 				'offset' => $offset,
 				'count' => 0,
-				'expirationTimestamp' => time(),
+				'lastChanged' => getLastScannedTime(),
 				'items' => \@empty
 			};
 		}
@@ -1567,13 +1576,13 @@ sub getNextDynamicPlaylistTracks {
 		my $result;
 		if(defined($items)) {	
 			$result = {
-				'expirationTimestamp' => time(),
+				'lastChanged' => time(),
 				'items' => $items
 			};
 		}else {
 			my @empty = ();
 			$result = {
-				'expirationTimestamp' => time(),
+				'lastChanged' => time(),
 				'items' => \@empty
 			};
 		}
