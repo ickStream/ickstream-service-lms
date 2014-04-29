@@ -112,24 +112,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>make-server-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <finalName>${project.artifactId}-0.1</finalName>
-                            <appendAssemblyId>true</appendAssemblyId>
-                            <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
-                            <attach>true</attach>
-                            <descriptors>
-                                <descriptor>src/main/assemble/playerserverzippackage.xml</descriptor>
-                            </descriptors>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
@@ -800,6 +782,32 @@
             <properties>
                 <com.ickstream.os>linux</com.ickstream.os>
             </properties>
+            <build>
+            	<plugins>
+		            <plugin>
+		                <groupId>org.apache.maven.plugins</groupId>
+		                <artifactId>maven-assembly-plugin</artifactId>
+		                <executions>
+		                    <execution>
+		                        <id>make-server-assembly</id>
+		                        <phase>package</phase>
+		                        <goals>
+		                            <goal>single</goal>
+		                        </goals>
+		                        <configuration>
+		                            <finalName>${project.artifactId}-0.1</finalName>
+		                            <appendAssemblyId>true</appendAssemblyId>
+		                            <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
+		                            <attach>true</attach>
+		                            <descriptors>
+		                                <descriptor>src/main/assemble/playerserverzippackage.xml</descriptor>
+		                            </descriptors>
+		                        </configuration>
+		                    </execution>
+		                </executions>
+		            </plugin>
+            	</plugins>
+            </build>
         </profile>
         <profile>
             <id>linuxarm</id>
@@ -812,6 +820,32 @@
             <properties>
                 <com.ickstream.os>linuxarm</com.ickstream.os>
             </properties>
+            <build>
+            	<plugins>
+		            <plugin>
+		                <groupId>org.apache.maven.plugins</groupId>
+		                <artifactId>maven-assembly-plugin</artifactId>
+		                <executions>
+		                    <execution>
+		                        <id>make-server-assembly</id>
+		                        <phase>package</phase>
+		                        <goals>
+		                            <goal>single</goal>
+		                        </goals>
+		                        <configuration>
+		                            <finalName>${project.artifactId}-0.1</finalName>
+		                            <appendAssemblyId>true</appendAssemblyId>
+		                            <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
+		                            <attach>true</attach>
+		                            <descriptors>
+		                                <descriptor>src/main/assemble/playerserverzippackage.xml</descriptor>
+		                            </descriptors>
+		                        </configuration>
+		                    </execution>
+		                </executions>
+		            </plugin>
+            	</plugins>
+            </build>
         </profile>
         <profile>
             <id>linuxarmhf</id>
@@ -824,6 +858,32 @@
             <properties>
                 <com.ickstream.os>linuxarmhf</com.ickstream.os>
             </properties>
+            <build>
+            	<plugins>
+		            <plugin>
+		                <groupId>org.apache.maven.plugins</groupId>
+		                <artifactId>maven-assembly-plugin</artifactId>
+		                <executions>
+		                    <execution>
+		                        <id>make-server-assembly</id>
+		                        <phase>package</phase>
+		                        <goals>
+		                            <goal>single</goal>
+		                        </goals>
+		                        <configuration>
+		                            <finalName>${project.artifactId}-0.1</finalName>
+		                            <appendAssemblyId>true</appendAssemblyId>
+		                            <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
+		                            <attach>true</attach>
+		                            <descriptors>
+		                                <descriptor>src/main/assemble/playerserverzippackage.xml</descriptor>
+		                            </descriptors>
+		                        </configuration>
+		                    </execution>
+		                </executions>
+		            </plugin>
+            	</plugins>
+            </build>
         </profile>
         <profile>
             <id>macosx</id>
@@ -835,6 +895,70 @@
             <properties>
                 <com.ickstream.os>macosx</com.ickstream.os>
             </properties>
+            <build>
+            	<plugins>
+		            <plugin>
+		                <groupId>org.apache.maven.plugins</groupId>
+		                <artifactId>maven-assembly-plugin</artifactId>
+		                <executions>
+		                    <execution>
+		                        <id>make-server-assembly</id>
+		                        <phase>package</phase>
+		                        <goals>
+		                            <goal>single</goal>
+		                        </goals>
+		                        <configuration>
+		                            <finalName>${project.artifactId}-0.1</finalName>
+		                            <appendAssemblyId>true</appendAssemblyId>
+		                            <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
+		                            <attach>true</attach>
+		                            <descriptors>
+		                                <descriptor>src/main/assemble/playerserverzippackage.xml</descriptor>
+		                            </descriptors>
+		                        </configuration>
+		                    </execution>
+		                </executions>
+		            </plugin>
+            	</plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>windows</id>
+            <activation>
+                <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>windows</value>
+                </property>
+            </activation>
+            <properties>
+                <com.ickstream.os>windows</com.ickstream.os>
+            </properties>
+            <build>
+            	<plugins>
+		            <plugin>
+		                <groupId>org.apache.maven.plugins</groupId>
+		                <artifactId>maven-assembly-plugin</artifactId>
+		                <executions>
+		                    <execution>
+		                        <id>make-server-assembly</id>
+		                        <phase>package</phase>
+		                        <goals>
+		                            <goal>single</goal>
+		                        </goals>
+		                        <configuration>
+		                            <finalName>${project.artifactId}-0.1</finalName>
+		                            <appendAssemblyId>true</appendAssemblyId>
+		                            <ignoreDirFormatExtensions>false</ignoreDirFormatExtensions>
+		                            <attach>true</attach>
+		                            <descriptors>
+		                                <descriptor>src/main/assemble/perlzippackage.xml</descriptor>
+		                            </descriptors>
+		                        </configuration>
+		                    </execution>
+		                </executions>
+		            </plugin>
+            	</plugins>
+            </build>
         </profile>
     </profiles>
 </project>
