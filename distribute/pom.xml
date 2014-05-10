@@ -97,6 +97,14 @@
                                     <groupId>com.ickstream.service.lms</groupId>
                                     <artifactId>IckStreamPlugin</artifactId>
                                     <version>1.0-SNAPSHOT</version>
+                                    <type>zip</type>
+                                    <classifier>windows</classifier>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.ickstream.service.lms</groupId>
+                                    <artifactId>IckStreamPlugin</artifactId>
+                                    <version>1.0-SNAPSHOT</version>
                                     <type>xml</type>
                                     <classifier>linux</classifier>
                                     <destFileName>repository-linux.xml</destFileName>
@@ -127,6 +135,15 @@
                                     <type>xml</type>
                                     <classifier>macosx</classifier>
                                     <destFileName>repository-macosx.xml</destFileName>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.ickstream.service.lms</groupId>
+                                    <artifactId>IckStreamPlugin</artifactId>
+                                    <version>1.0-SNAPSHOT</version>
+                                    <type>xml</type>
+                                    <classifier>windows</classifier>
+                                    <destFileName>repository-windows.xml</destFileName>
                                     <outputDirectory>${project.build.directory}</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
