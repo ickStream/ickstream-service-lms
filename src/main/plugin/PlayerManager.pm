@@ -72,6 +72,20 @@ sub isPlayerInitialized {
 	return defined($initializedPlayers->{$player->id});
 }
 
+sub playerEnabledQuery {
+	my $request = shift;
+	my $client = $request->client();
+	
+	if ($request->isNotQuery([['ickstream'], ['player']])) {
+		$request->setStatusBadDispatch();
+		return;
+	}
+	
+	my $enabled = isPlayerInitialized($client) || 0;
+	$request->addResult('_enabled', $enabled);
+	$request->setStatusDone();
+}
+
 sub initializePlayer {
 	my $player = shift;
 	

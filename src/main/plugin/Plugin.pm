@@ -95,7 +95,8 @@ sub initPlugin {
 	Plugins::IckStreamPlugin::BrowseManager::init();
 	Plugins::IckStreamPlugin::Settings->new($class);
 	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServers,$class);
-	
+	Slim::Control::Request::addDispatch(['ickstream','player','?'], [1, 1, 0, \&Plugins::IckStreamPlugin::PlayerManager::playerEnabledQuery]);
+
 	Slim::Control::Request::subscribe(\&Plugins::IckStreamPlugin::PlayerManager::playerChange,[['client']]);
 	if(!main::ISWINDOWS) {
 		Slim::Control::Request::subscribe(\&trackEnded,[['playlist'],['newsong']]);
