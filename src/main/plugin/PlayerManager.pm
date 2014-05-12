@@ -81,7 +81,12 @@ sub playerEnabledQuery {
 		return;
 	}
 	
-	my $enabled = isPlayerInitialized($client) || 0;
+	my $enabled = 0;
+	if(!main::ISWINDOWS) {
+		if($prefs->get('squeezePlayPlayersEnabled') || ($client->modelName() ne 'Squeezebox Touch' && $client->modelName() ne 'Squeezebox Radio')) {
+			$enabled = 1;
+		}
+	}
 	$request->addResult('_enabled', $enabled);
 	$request->setStatusDone();
 }
