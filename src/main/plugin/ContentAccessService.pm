@@ -56,6 +56,8 @@ my %methods = (
 		'getProtocolVersions'	=> \&getProtocolVersions,
 		'getManagementProtocolDescription' => \&getManagementProtocolDescription,
 		'getProtocolDescription' => \&getProtocolDescription,
+		'getProtocolDescription2' => \&getProtocolDescription2,
+		'getPreferredMenus' => \&getPreferredMenus,
         'findTopLevelItems'        => \&findTopLevelItems,
         'findItems'        => \&findItems,
         'getNextDynamicPlaylistTracks'        => \&getNextDynamicPlaylistTracks,
@@ -239,6 +241,363 @@ sub getProtocolDescription {
 
 }
 
+sub getPreferredMenus {
+	my $context = shift;
+	
+	my @contexts = ();
+
+	my $artistsMenu = {
+		'type' => 'browse',
+		'text' => 'Artists',
+		'childRequest' => {
+			'request' => 'myMusic:artists',
+			'childRequest' => {
+				'request' => 'myMusic:albumsByArtist',
+				'childRequest' => {
+					'request' => 'myMusic:tracksOnAlbum'
+				}
+			}
+		}
+	};
+	push @contexts,$artistsMenu;
+	
+	my $albumsMenu = {
+		'type' => 'browse',
+		'text' => 'Albums',
+		'childRequest' => {
+			'request' => 'myMusic:albums',
+			'childRequest' => {
+				'request' => 'myMusic:tracksOnAlbum'
+			}
+		}
+	};
+	push @contexts,$albumsMenu;
+
+	my $genresMenu = {
+		'type' => 'browse',
+		'text' => 'Genres',
+		'childRequest' => {
+			'request' => 'myMusic:categories',
+			'childRequest' => {
+				'request' => 'myMusic:artistsInCategory',
+				'childRequest' => {
+					'request' => 'myMusic:albumsInCategoryByArtist',
+					'childRequest' => {
+						'request' => 'myMusic:tracksOnAlbum'
+					}
+				}
+			}
+		}
+	};
+	push @contexts,$genresMenu;
+
+	my $playlistsMenu = {
+		'type' => 'browse',
+		'text' => 'Playlists',
+		'childRequest' => {
+			'request' => 'myMusic:playlists',
+			'childRequest' => {
+				'request' => 'myMusic:tracksInPlaylist'
+			}
+		}
+	};
+	push @contexts,$playlistsMenu;
+
+
+	my $folderMenu = {
+		'type' => 'browse',
+		'text' => 'Music folders',
+		'childRequest' => {
+			'request' => 'myMusic:menus',
+			'childRequest' => {
+				'request' => 'myMusic:childItemsInMenu'
+			}
+		}
+	};
+	push @contexts,$folderMenu;
+	my $searchMenu = {
+		'type' => 'search',
+		'text' => 'Search',
+		'childItems' => [
+			{
+				'type' => 'search',
+				'text' => 'Artists',
+				'childRequest' => {
+					'request' => 'allMusic:searchForArtists',
+					'childRequest' => {
+						'request' => 'myMusic:albumsByArtist',
+						'childRequest' => {
+							'request' => 'myMusic:tracksOnAlbum'
+						}
+					}
+				}
+			},
+			{
+				'type' => 'search',
+				'text' => 'Albums',
+				'childRequest' => {
+					'request' => 'allMusic:searchForAlbums',
+					'childRequest' => {
+						'request' => 'myMusic:tracksOnAlbum'
+					}
+				}
+			},
+			{
+				'type' => 'search',
+				'text' => 'Playlists',
+				'childRequest' => {
+					'request' => 'allMusic:searchForPlaylists',
+					'childRequest' => {
+						'request' => 'myMusic:tracksInPlaylist'
+					}
+				}
+			},
+			{
+				'type' => 'search',
+				'text' => 'Tracks',
+				'childRequest' => {
+					'request' => 'allMusic:searchForTracks'
+				}
+			},
+		]
+	};
+	push @contexts,$searchMenu;
+	
+
+    # get the JSON-RPC params
+    my $reqParams = $context->{'procedure'}->{'params'};
+	if ( $log->is_debug ) {
+	        $log->debug( "getProtocolDescription(" . Data::Dump::dump($reqParams) . ")" );
+	}
+
+	my $count = $reqParams->{'count'} if exists($reqParams->{'count'});
+	my $offset = $reqParams->{'offset'} || 0;
+	if(!defined($count)) {
+		$count = scalar(@contexts);
+	}
+
+	my @resultItems = ();
+	my $i = 0;
+	for my $context (@contexts) {
+		if($i>=$offset && scalar(@resultItems)<$count) {
+			push @resultItems,$context;
+		}
+		$i++;
+	}
+
+	my $result = {
+		'offset' => $offset,
+		'count' => scalar(@resultItems),
+		'countAll' => scalar(@contexts),
+		'items' => \@resultItems
+	};
+	# the request was successful and is not async, send results back to caller!
+	Plugins::IckStreamPlugin::JsonHandler::requestWrite($result, $context->{'httpClient'}, $context);
+}
+
+sub getProtocolDescription2 {
+	my $context = shift;
+
+	my @contexts = ();
+	
+	my $myMusicContext = {
+			'contextId' => 'myMusic',
+			'name' => 'My Music',
+			'supportedRequests' => {
+				'artist' => {
+					'myMusic:artists' => {
+						'parameters' => 
+							['contextId','type']
+					},
+					'myMusic:artistsInCategory' => {
+						'parameters' => 
+							['contextId','type','categoryId']
+					}
+				},
+				'album' => {
+					'myMusic:albums' => {
+						'parameters' => 
+							['contextId','type']
+					},
+					'myMusic:albumsByArtist' => {
+						'parameters' => 
+							['contextId','type','artistId']
+					},
+					'myMusic:albumsInCategory' => {
+						'parameters' => 
+							['contextId','type','categoryId'],
+					},
+					'myMusic:albumsInCategoryByArtist' => {
+						'parameters' => 
+							['contextId','type','categoryId','artistId']
+					}
+						
+				},
+				'playlist' => {
+					'myMusic:playlists' => {
+						'parameters' => 
+							['contextId','type']
+					}
+				},
+				'track' => {
+					'myMusic:tracksByArtist' => {
+						'parameters' => 
+							['contextId','type','artistId']
+					},
+					'myMusic:tracksInPlaylist' => {
+						'parameters' => 
+							['contextId','type','playlistId']
+					},
+					'myMusic:tracksOnAlbum' => {
+						'parameters' => 
+							['contextId','type','albumId']
+					},
+					'myMusic:tracksOnAlbumByArtist' => {
+						'parameters' => 
+							['contextId','type','artistId','albumId']
+					}
+				},
+				'category' => {
+					'myMusic:categories' => {
+						'parameters' => 
+							['contextId','type']
+					}
+				},
+				'menu' => {
+					'myMusic:menus' => {
+						'parameters' => 
+							['contextId','type']
+					}
+				},
+				'none' => {
+					'myMusic:childItemsInMenu' => {
+						'parameters' => 
+							['contextId','menuId']
+					}
+				}
+			}
+		};
+
+	push @contexts,$myMusicContext;
+
+	my $allMusicContext = {
+			'contextId' => 'allMusic',
+			'name' => 'All Music',
+			'supportedRequests' => {
+				'artist' => {
+					'allMusic:artists' => {
+						'parameters' => 
+							['contextId','type']
+					},
+					'allMusic:searchForArtists' => {
+						'parameters' => 
+							['contextId','type','search']
+					},
+					'allMusic:artistsInCategory' => {
+						'parameters' => 
+							['contextId','type','categoryId']
+					}
+				},
+				'album' => {
+					'allMusic:albums' => {
+						'parameters' => 
+							['contextId','type']
+					},
+					'allMusic:searchForAlbums' => {
+						'parameters' => 
+							['contextId','type','search']
+					},
+					'allMusic:albumsByArtist' => {
+						'parameters' => 
+							['contextId','type','artistId']
+					},
+					'allMusic:albumsInCategory' => {
+						'parameters' => 
+							['contextId','type','categoryId'],
+					},
+					'allMusic:albumsInCategoryByArtist' => {
+						'parameters' => 
+							['contextId','type','categoryId','artistId']
+					}
+						
+				},
+				'playlist' => {
+					'allMusic:playlists' => {
+						'parameters' => 
+							['contextId','type']
+					},
+					'allMusic:searchForPlaylists' => {
+						'parameters' => 
+							['contextId','type','search']
+					}
+				},
+				'track' => {
+					'allMusic:searchForTrack' => {
+						'parameters' => 
+							['contextId','type','search']
+					},
+					'allMusic:tracksByArtist' => {
+						'parameters' => 
+							['contextId','type','artistId']
+					},
+					'allMusic:tracksInPlaylist' => {
+						'parameters' => 
+							['contextId','type','playlistId']
+					},
+					'allMusic:tracksInCategory' => {
+						'parameters' => 
+							['contextId','type','cateogryId']
+					},
+					'allMusic:tracksInCategoryByArtist' => {
+						'parameters' => 
+							['contextId','type','cateogryId','artistId']
+					},
+					'allMusic:tracksOnAlbum' => {
+						'parameters' => 
+							['contextId','type','albumId']
+					},
+					'allMusic:tracksOnAlbumByArtist' => {
+						'parameters' => 
+							['contextId','type','artistId','albumId']
+					}
+				}
+			}
+		};
+	
+	push @contexts,$allMusicContext;
+
+    # get the JSON-RPC params
+    my $reqParams = $context->{'procedure'}->{'params'};
+	if ( $log->is_debug ) {
+	        $log->debug( "getProtocolDescription(" . Data::Dump::dump($reqParams) . ")" );
+	}
+
+	my $count = $reqParams->{'count'} if exists($reqParams->{'count'});
+	my $offset = $reqParams->{'offset'} || 0;
+	if(!defined($count)) {
+		$count = scalar(@contexts);
+	}
+
+	my @resultItems = ();
+	my $i = 0;
+	for my $context (@contexts) {
+		if($i>=$offset && scalar(@resultItems)<$count) {
+			push @resultItems,$context;
+		}
+		$i++;
+	}
+
+	my $result = {
+		'offset' => $offset,
+		'count' => scalar(@resultItems),
+		'countAll' => scalar(@contexts),
+		'items' => \@resultItems
+	};
+	# the request was successful and is not async, send results back to caller!
+	Plugins::IckStreamPlugin::JsonHandler::requestWrite($result, $context->{'httpClient'}, $context);
+
+}
+
 sub getManagementProtocolDescription {
 	my $context = shift;
 
@@ -382,7 +741,7 @@ sub findItems {
 				$items = findTracks($reqParams,$offset,$count);
 			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'category') {
 				$items = findCategories($reqParams,$offset,$count);
-			} elsif(exists($reqParams->{'contextId'}) && $reqParams->{'contextId'} eq 'myMusicFolder' && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu')) {
+			} elsif(exists($reqParams->{'contextId'}) && ($reqParams->{'contextId'} eq 'myMusicFolder' || $reqParams->{'contextId'} eq 'myMusic') && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu')) {
 				$items = findFolders($reqParams,$offset,$count);
 			}
 		}
@@ -450,7 +809,7 @@ sub getProtocolVersions {
 	}
 	my $result = {
 		'minVersion' => '1.0',
-		'maxVersion' => '1.0'
+		'maxVersion' => '2.0'
 	};
 	# the request was successful and is not async, send results back to caller!
 	Plugins::IckStreamPlugin::JsonHandler::requestWrite($result, $context->{'httpClient'}, $context);
@@ -1476,6 +1835,7 @@ sub processFolderResult {
 			'text' => $trackTitle,
 			'sortText' => $trackSortTitle,
 			'type' => "menu",
+			'preferredChildRequest' => 'myMusic:childItemsInMenu',
 			'itemAttributes' => {
 				'id' => "$serverPrefix:folder:$trackMd5Url",
 				'name' => $trackTitle
