@@ -46,6 +46,7 @@ my $prefs = preferences('plugin.ickstream');
 
 my $cloudServiceEntries = {};
 my $cloudServiceProtocolEntries = {};
+my $cloudServiceMenus = {};
 
 tie my %cache, 'Tie::Cache::LRU', 10;
 use constant CACHE_TIME => 300;
@@ -121,45 +122,38 @@ sub init {
 								$cloudServiceEntries->{$service->{'id'}} = $service;
 							}
 						}
-						getProtocolDescription(undef, $service->{'id'},
+							
+						getProtocolDescription2(undef, $service->{'id'},
 							sub {
 								my $serviceId = shift;
-								my $protocolDescription = shift;
-
-								foreach my $context (@{$protocolDescription->{'items'}}) {
-									my @searchTypes = ();
-									foreach my $request (@{$context->{'supportedRequests'}}) {
-										my $supported = undef;
-										foreach my $parameters (@{$request->{'parameters'}}) {
-											my $unsupported = undef;
-											foreach my $parameter (@{$parameters}) {
-												if($parameter ne 'contextId' && $parameter ne 'type' && $parameter ne 'search') {
-													$unsupported = 1;
-													last;
+								my $protocolEntries = shift;
+								
+								getPreferredMenus(undef, $service->{'id'},
+									sub {
+										my $serviceId = shift;
+										my $preferredMenus = shift;
+										
+										foreach my $menu (@{$preferredMenus}) {
+											if($menu->{'type'} eq 'search') {
+												my $searchRequests = findSearchRequests($menu,$protocolEntries);
+												if(scalar(@$searchRequests)>0) {
+													$log->debug("Added search provider for: ".$service->{'name'});
+													Slim::Menu::GlobalSearch->registerInfoProvider('ickstream_'.$service->{'id'} => (
+														func => sub {
+										                	my ( $client, $tags ) = @_;
+										                	return searchMenu($client,$tags,$service, $searchRequests);
+														}
+													));
 												}
 											}
-											if(!$unsupported && scalar(@{$parameters})==3) {
-												$supported = 1;
-												last;
-											}
 										}
-										if($supported) {
-											push @searchTypes, $request->{'type'};
-										}
-									}
-									if(scalar(@searchTypes)>0) {
-										$log->debug("Added search provider for: ".$service->{'name'}. " in ".$context->{'name'});
-										Slim::Menu::GlobalSearch->registerInfoProvider( 'ickstream_'.$service->{'id'}."_".$context->{'contextId'} => (
-								                func => sub {
-								                	my ( $client, $tags ) = @_;
-								                	return searchMenu($client,$tags,$service, $context->{'contextId'},\@searchTypes);
-								                }
-										) );
-									}
-								}
+									},
+									sub {
+										$log->warn("Failed to retrieve preferred menus from cloud");
+									});
 							},
 							sub {
-								$log->warn("Failed to retrieve content services from cloud");
+								$log->warn("Failed to retrieve protocol description from cloud");
 							});
 					}
 				}else {
@@ -177,19 +171,55 @@ sub init {
 	}
 }
 
+sub findSearchRequests {
+	my $menu = shift;
+	my $protocolEntries = shift;
+	my $searchRequests = shift;
+	
+	if(!defined($searchRequests)) {
+		my @empty = ();
+		$searchRequests = \@empty;
+	}
+	
+	if(defined($menu->{'childRequest'})) {
+		my $request = $protocolEntries->{$menu->{'childRequest'}->{'request'}};
+		if(defined($request)) {
+			my $searchRequest = {
+				'contextId' => $request->{'values'}->{'contextId'},
+				'name' => $menu->{'text'},
+				'request' => $menu->{'childRequest'}->{'request'},
+			};
+			if(defined($menu->{'childRequest'}->{'childItems'})) {
+				$searchRequest->{'childItems'} = $menu->{'childRequest'}->{'childItems'};
+			}
+			if(defined($menu->{'childRequest'}->{'childRequest'})) {
+				$searchRequest->{'childRequest'} = $menu->{'childRequest'}->{'childRequest'};
+			}
+			
+			push @$searchRequests,$searchRequest;
+		}
+	}elsif(defined($menu->{'childItems'})) {
+		foreach my $childItem (@{$menu->{'childItems'}}) {
+			if($childItem->{'type'} eq 'search') {
+				findSearchRequests($childItem,$protocolEntries,$searchRequests);
+			}
+		}
+	}
+	return $searchRequests;	
+}
+
 sub searchMenu {
 	my $client = shift;
 	my $tags = shift;
 	my $service = shift;
-	my $contextId = shift;
-	my $searchTypes = shift;
+	my $searchRequests = shift;
 	
 	my @result = ();
-	foreach my $type (@$searchTypes) {
+	foreach my $searchRequest (@$searchRequests) {
 		my $menu = {
-			name => getNameForType(undef,$type),
+			name => $searchRequest->{'name'},
 			url => \&searchItemMenu,
-			passthrough => [$service->{'id'},$contextId, $type,$tags->{search}]
+			passthrough => [$service->{'id'},$searchRequest,$tags->{search}]
 		};
 		push @result,$menu;
 	}
@@ -245,7 +275,7 @@ sub topLevel {
 										$cloudServiceEntries->{$service->{'id'}} = $service;
 										my $serviceEntry = {
 											name => $service->{'name'},
-											url => \&serviceContextMenu,
+											url => \&preferredServiceMenu,
 											passthrough => [$service->{'id'}]
 										};
 										push @services,$serviceEntry;
@@ -281,7 +311,7 @@ sub topLevel {
 		}
 }
 
-sub getProtocolDescription {
+sub getProtocolDescription2 {
 	my $client = shift;
 	my $serviceId = shift;
 	my $successCb = shift;
@@ -309,7 +339,22 @@ sub getProtocolDescription {
 						my $jsonResponse = from_json($http->content);
 						my @menus = ();
 						if($jsonResponse->{'result'}) {
-							$cloudServiceProtocolEntries->{$serviceId} = $jsonResponse->{'result'};
+							$cloudServiceProtocolEntries->{$serviceId} = {};
+							foreach my $context (@{$jsonResponse->{'result'}->{'items'}}) {
+								foreach my $type (keys %{$context->{'supportedRequests'}}) {
+									my $requests = $context->{'supportedRequests'}->{$type};
+									foreach my $requestId (keys %$requests) {
+										$cloudServiceProtocolEntries->{$serviceId}->{$requestId} = $requests->{$requestId};
+										if(!defined($cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'})) {
+											$cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'} = {};
+										}
+										if($type ne 'none') {
+											$cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'}->{'type'} = $type;
+										}
+										$cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'}->{'contextId'} = $context->{'contextId'};
+									}
+								}
+							}
 							&{$successCb}($serviceId,$cloudServiceProtocolEntries->{$serviceId});
 						}else {
 							$log->warn("Failed to retrieve protocol description for ".$serviceId.": ".Dumper($jsonResponse));
@@ -326,14 +371,67 @@ sub getProtocolDescription {
 				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,to_json({
 					'jsonrpc' => '2.0',
 					'id' => 1,
-					'method' => 'getProtocolDescription',
+					'method' => 'getProtocolDescription2',
 					'params' => {
 					}
 				}));
 		
 	}
 }
-sub serviceContextMenu {
+sub getPreferredMenus {
+	my $client = shift;
+	my $serviceId = shift;
+	my $successCb = shift;
+	my $errorCb = shift;
+	
+	my $accessToken = getAccessToken($client);
+	if(!defined($accessToken)) {
+		if(defined($client)) {
+			$log->warn("Player ".$client->name()." isn't registered");
+		}else {
+			$log->warn("This LMS isn't registered");
+		}
+		&{$errorCb}($serviceId);
+	}
+
+	if(defined($cloudServiceMenus->{$serviceId})) {
+		&{$successCb}($serviceId,$cloudServiceMenus->{$serviceId});
+	}else {
+		$log->info("Retrieve preferred menus for ".$serviceId);
+		my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+		$log->info("Retriving data from: $serviceUrl");
+		Slim::Networking::SimpleAsyncHTTP->new(
+					sub {
+						my $http = shift;
+						my $jsonResponse = from_json($http->content);
+						my @menus = ();
+						if($jsonResponse->{'result'}) {
+							$cloudServiceMenus->{$serviceId} = $jsonResponse->{'result'}->{'items'};
+							&{$successCb}($serviceId,$cloudServiceMenus->{$serviceId});
+						}else {
+							$log->warn("Failed to retrieve preferred menus for ".$serviceId.": ".Dumper($jsonResponse));
+							&{$errorCb}($serviceId);
+						}
+					},
+					sub {
+						my $http = shift;
+						my $error = shift;
+						$log->warn("Failed to retrieve preferred menus for ".$serviceId.": ".$error);
+						&{$errorCb}($serviceId);
+					},
+					undef
+				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,to_json({
+					'jsonrpc' => '2.0',
+					'id' => 1,
+					'method' => 'getPreferredMenus',
+					'params' => {
+					}
+				}));
+		
+	}
+}
+
+sub preferredServiceMenu {
 	my ($client, $cb, $args, $serviceId) = @_;
 	
 	my $accessToken = getAccessToken($client);
@@ -343,103 +441,92 @@ sub serviceContextMenu {
                        type => 'textarea',
                }]});
 	}else {
-		getProtocolDescription($client, $serviceId,
+		getProtocolDescription2(undef, $serviceId,
 			sub {
 				my $serviceId = shift;
-				my $protocolDescription = shift;
-				my @menus = ();
-				my $searchItem = 0;
-				if($protocolDescription->{'items'}) {
-					foreach my $context (@{$protocolDescription->{'items'}}) {
-						my $supported = undef;
-						foreach my $request (@{$context->{'supportedRequests'}}) {
-							foreach my $parameters (@{$request->{'parameters'}}) {
-								my $unsupported = undef;
-								foreach my $parameter (@{$parameters}) {
-									if($parameter ne 'contextId' && $parameter ne 'type') {
-										$unsupported = 1;
-										last;
+				my $protocolEntries = shift;
+				
+				getPreferredMenus(undef, $serviceId,
+					sub {
+						my $serviceId = shift;
+						my $preferredMenus = shift;
+
+						my @menus = ();
+						my $noOfChildItemsMenus = 0;
+						my $noOfChildRequestMenus = 0;
+						foreach my $menu (@$preferredMenus) {
+							if($menu->{'type'} eq 'browse') {
+								if(defined($menu->{'childItems'})) {
+									my $entry = {
+										'name' => $menu->{'text'},
+										'url' => \&serviceChildItemsMenu,
+										'passthrough' => [
+											$serviceId,
+											$menu->{'childItems'}
+										]
+									};
+									$noOfChildItemsMenus++;
+									push @menus,$entry;
+								}elsif(defined($menu->{'childRequest'})) {
+									my $entry = {
+										'name' => $menu->{'text'},
+										'url' => \&serviceChildRequestMenu,
+										'passthrough' => [
+											$serviceId,
+											$menu->{'childRequest'}
+										]
+									};
+									$noOfChildRequestMenus++;
+									push @menus,$entry;
+								}
+							}elsif($menu->{'type'} eq 'search') {
+								my $searchRequests = findSearchRequests($menu,$protocolEntries);
+								
+								my $entry = {
+									'name' => $menu->{'text'},
+									'type' => 'search',
+									'url' => sub {
+										my ($client, $cb, $params) = @_;
+										
+										my $searchMenu = searchMenu($client, {
+												search => lc($params->{search})
+											},
+											$cloudServiceEntries->{$serviceId},
+											$searchRequests);
+										
+										$cb->({
+											items => $searchMenu->{items}
+										});
 									}
-								}
-								if(!$unsupported) {
-									$supported = 1;
-									last;
-								}
-							}
-							if($supported) {
-								last;
+								};
+								push @menus,$entry;
 							}
 						}
-						if($supported) {
-							my $menu = {
-								'name' => $context->{'name'},
-								'url' => \&serviceTypeMenu,
-								'passthrough' => [
-									$serviceId,
-									$context->{'contextId'}
-								]
-							};
-							push @menus,$menu;
-						}
-					}
-					
-					foreach my $context (@{$protocolDescription->{'items'}}) {
-						my @searchTypes = ();
-						foreach my $request (@{$context->{'supportedRequests'}}) {
-							foreach my $parameters (@{$request->{'parameters'}}) {
-								my $unsupported = undef;
-								foreach my $parameter (@{$parameters}) {
-									if($parameter ne 'contextId' && $parameter ne 'type' && $parameter ne 'search') {
-										$unsupported = 1;
-										last;
-									}
-								}
-								if(!$unsupported && scalar(@{$parameters})==3) {
-									push @searchTypes, $request->{'type'};
-									last;
-								}
+
+						if(scalar(@menus)>0) {
+							if(scalar(@menus)==1 && $noOfChildRequestMenus==1) {
+								my $menu = @menus[0];
+								serviceChildRequestMenu($client,$cb,$args,$serviceId,$menu->{'passthrough'}[1]);
+							}else {
+								my $resultItems = sliceResult(\@menus,$args);
+								$log->debug("Returning: ".scalar(@$resultItems). " items");
+								$cb->({items => $resultItems, offset => getOffset($args)});
 							}
+						}else {
+							$cb->({items => [{
+								name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
+								type => 'textarea',
+			                }]});
 						}
-						if(scalar(@searchTypes)>0) {
-							my $service = $cloudServiceEntries->{$serviceId};
-							$log->debug("Creating search menu for: ".$service->{'name'});
-							my $menu = {
-								'name' => cstring($client, 'SEARCH'),
-								'type' => 'search',
-								'url' => sub {
-									my ($client, $cb, $params) = @_;
-									
-									my $searchMenu = searchMenu($client, {
-											search => lc($params->{search})
-										},
-										$cloudServiceEntries->{$serviceId},
-										$context->{'contextId'},
-										\@searchTypes);
-									
-									$cb->({
-										items => $searchMenu->{items}
-									});
-								}
-							};
-							push @menus,$menu;
-							$searchItem = 1;
-						}
-					}
-				}
-				if(scalar(@menus)>0) {
-					if(scalar(@menus)==1 && !$searchItem) {
-						serviceTypeMenu($client, $cb, $args, $serviceId, @menus[0]->{'passthrough'}[1]);
-					}else {
-						my $resultItems = sliceResult(\@menus,$args);
-						$log->debug("Returning: ".scalar(@$resultItems). " items");
-						$cb->({items => $resultItems, offset => getOffset($args)});
-					}
-				}else {
-					$cb->({items => [{
-						name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
-						type => 'textarea',
-	                }]});
-				}
+					},
+					sub {
+						$log->warn("Failed to retrieve content services from cloud");
+						$cb->(items => [{
+							name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
+							type => 'textarea',
+		                }]);
+					});
+
 			},
 			sub {
 				$log->warn("Failed to retrieve content services from cloud");
@@ -452,31 +539,9 @@ sub serviceContextMenu {
 	        
 }
 
-sub getNameForType {
-	my $context = shift;
-	my $type = shift;
-	
-	if($type eq 'artist') {
-		return 'Artists';
-	}elsif($type eq 'album') {
-		return 'Albums';
-	}elsif($type eq 'track') {
-		return 'Songs';
-	}elsif($type eq 'stream') {
-		return 'Stations';
-	}elsif($type eq 'category') {
-		return 'Genres';
-	}elsif($type eq 'playlist') {
-		return 'Playlists';
-	}elsif($type eq 'friend') {
-		return 'Friends';
-	}else {
-		return $type.'s';
-	}
-}
 
-sub serviceTypeMenu {
-	my ($client, $cb, $args, $serviceId, $contextId) = @_;
+sub serviceChildItemsMenu {
+	my ($client, $cb, $args, $serviceId, $childItems,$parent) = @_;
 
 	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
@@ -485,55 +550,44 @@ sub serviceTypeMenu {
                        type => 'textarea',
                }]});
 	}else {
-		getProtocolDescription($client, $serviceId,
+		getProtocolDescription2($client, $serviceId,
 			sub {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
 				my @menus = ();
-				if($protocolDescription->{'items'}) {
-					foreach my $context (@{$protocolDescription->{'items'}}) {
-						if($context->{'contextId'} eq $contextId) {
-							foreach my $request (@{$context->{'supportedRequests'}}) {
-								my $supported = undef;
-								foreach my $parameters (@{$request->{'parameters'}}) {
-									my $unsupported = undef;
-									foreach my $parameter (@{$parameters}) {
-										if($parameter ne 'contextId' && $parameter ne 'type') {
-											$unsupported = 1;
-											last;
-										}
-									}
-									if(!$unsupported) {
-										$supported = 1;
-										last;
-									}
-								}
-								if($supported) {
-									my $menu = {
-										'name' => getNameForType($context->{'contextId'}, $request->{'type'}),
-										'url' => \&serviceItemMenu,
-										'passthrough' => [
-											$serviceId,
-											$context->{'contextId'},
-											{
-												'type' => $request->{'type'}
-											}
-										]
-									};
-									push @menus,$menu;
-								}
-							}
+				
+				foreach my $menu (@$childItems) {
+					if($menu->{'type'} ne 'search') {
+						if(defined($menu->{'childItems'})) {
+							my $entry = {
+								'name' => $menu->{'text'},
+								'url' => \&serviceChildItemsMenu,
+								'passthrough' => [
+									$serviceId,
+									$menu->{'childItems'},
+									$parent
+								]
+							};
+							push @menus,$entry;
+						}elsif(defined($menu->{'childRequest'})) {
+							my $entry = {
+								'name' => $menu->{'text'},
+								'url' => \&serviceChildRequestMenu,
+								'passthrough' => [
+									$serviceId,
+									$menu->{'childRequest'},
+									$parent
+								]
+							};
+							push @menus,$entry;
 						}
 					}
 				}
+
 				if(scalar(@menus)>0) {
-					if(scalar(@menus)==1) {
-						serviceItemMenu($client, $cb, $args, $serviceId, @menus[0]->{'passthrough'}[1], @menus[0]->{'passthrough'}[2]);
-					}else {
-						my $resultItems = sliceResult(\@menus,$args);
-						$log->debug("Returning: ".scalar(@$resultItems). " items");
-						$cb->({items => $resultItems, offset => getOffset($args)});
-					}
+					my $resultItems = sliceResult(\@menus,$args);
+					$log->debug("Returning: ".scalar(@$resultItems). " items");
+					$cb->({items => $resultItems, offset => getOffset($args)});
 				}else {
 					$cb->({items => [{
 						name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
@@ -551,8 +605,8 @@ sub serviceTypeMenu {
 	}
 }
 
-sub serviceItemMenu {
-	my ($client, $cb, $args, $serviceId, $contextId, $parent) = @_;
+sub serviceChildRequestMenu {
+	my ($client, $cb, $args, $serviceId, $childRequest, $parent) = @_;
 	
 	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
@@ -561,27 +615,22 @@ sub serviceItemMenu {
                        type => 'textarea',
                }]});
 	}else {
-		getProtocolDescription($client, $serviceId,
+		getProtocolDescription2($client, $serviceId,
 			sub {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
-								
-				my $tmpParent = $parent;
-				my @usedTypes = ();
-				while(defined($tmpParent)) {
-					if(defined($tmpParent->{'id'}) && defined($tmpParent->{'type'}) && $tmpParent->{'type'} ne 'menu' && $tmpParent->{'type'} ne 'category') {
-						push @usedTypes, $tmpParent->{'type'};
-					}
-					if(defined($tmpParent->{'parent'})) {
-						$tmpParent = $tmpParent->{'parent'};
+				
+				my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+				my $request = $protocolDescription->{$childRequest->{'request'}};
+
+				my $params = {};
+				foreach my $param (@{$request->{'parameters'}}) {
+					if(defined($request->{'values'}->{$param})) {
+						$params->{$param} = $request->{'values'}->{$param};
 					}else {
-						$tmpParent = undef;
+						$params->{$param} = getParameterFromParent($param,$parent);
 					}
 				}
-
-
-				my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
-				my $params = createChildRequestParameters($protocolDescription, $contextId,$parent->{'type'},$parent,\@usedTypes);
 				if(defined($args->{'quantity'}) && $args->{'quantity'} ne "") {
 					$params->{'count'} = int($args->{'quantity'});
 				}
@@ -623,24 +672,64 @@ sub serviceItemMenu {
 										$totalItems =$jsonResponse->{'result'}->{'countAll'};
 									}
 									foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
-										my $menu = {
-											'name' => $item->{'text'},
-											'passthrough' => [
-												$serviceId,
-												$contextId,
-												{
-													'type' => $item->{'type'},
-													'id' => $item->{'id'},
-													'preferredChildItems' => $item->{'preferredChildItems'},
-													'parent' => $parent
-												}
-											]
-										};
+										my $menu;
+										if(defined($childRequest->{'childItems'})) {
+											$menu = {
+												'name' => $item->{'text'},
+												'url' => \&serviceChildItemsMenu,
+												'passthrough' => [
+													$serviceId,
+													$childRequest->{'childItems'},
+													{
+														'type' => $item->{'type'},
+														'id' => $item->{'id'},
+														'preferredChildRequest' => $item->{'preferredChildRequest'},
+														'parent' => $parent
+													}
+												]
+											};
+										}elsif(defined($childRequest->{'childRequest'})) {
+											$menu = {
+												'name' => $item->{'text'},
+												'url' => \&serviceChildRequestMenu,
+												'passthrough' => [
+													$serviceId,
+													$childRequest->{'childRequest'},
+													{
+														'type' => $item->{'type'},
+														'id' => $item->{'id'},
+														'preferredChildRequest' => $item->{'preferredChildRequest'},
+														'parent' => $parent
+													}
+												]
+											};
+										}elsif(defined($item->{'preferredChildRequest'})) {
+											$menu = {
+												'name' => $item->{'text'},
+												'url' => \&serviceChildRequestMenu,
+												'passthrough' => [
+													$serviceId,
+													{
+														'request' => $item->{'preferredChildRequest'}
+													},
+													{
+														'type' => $item->{'type'},
+														'id' => $item->{'id'},
+														'preferredChildRequest' => $item->{'preferredChildRequest'},
+														'parent' => $parent
+													}
+												]
+											};
+										}else {
+											$menu = {
+												'name' => $item->{'text'}
+											};
+										}
 										if(defined($item->{'image'})) {
 											$menu->{'image'} = $item->{'image'};
 										}
+
 										if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
-											$menu->{'url'} = \&serviceItemMenu;
 											if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
 												$menu->{'type'} = 'playlist';
 												if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'artist' || !defined($parent->{'id'}))) {
@@ -712,15 +801,16 @@ sub serviceItemMenu {
 		sub {
 			$log->warn("Failed to retrieve content services from cloud");
 			$cb->(items => [{
-				name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE__REQUIRES_CREDENTIALS'),
+				name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
 				type => 'textarea',
                }]);
 		});
 	}
 }
 
+
 sub searchItemMenu {
-	my ($client, $cb, $args, $serviceId, $contextId, $type, $search) = @_;
+	my ($client, $cb, $args, $serviceId, $searchRequest, $search) = @_;
 	
 	my $accessToken = getAccessToken($client);
 	if(!defined($accessToken)) {
@@ -729,327 +819,200 @@ sub searchItemMenu {
                        type => 'textarea',
                }]});
 	}else {
-			my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
-			my $params = {
-				'contextId' => $contextId,
-				'type' => $type,
-				'search' => $search
-			};
-			if(defined($args->{'quantity'}) && $args->{'quantity'} ne "") {
-				$params->{'count'} = int($args->{'quantity'});
-			}
-			if(defined($args->{'index'}) && $args->{'index'} ne "") {
-				$params->{'offset'} = int($args->{'index'});
-			}else {
-				$params->{'offset'} = 0;
-			}
-			my $requestParams = to_json({
-						'jsonrpc' => '2.0',
-						'id' => 1,
-						'method' => 'findItems',
-						'params' => $params
-					});
-			$log->debug("Using: ".Dumper($requestParams));
-			my $cacheKey = "$accessToken.$serviceId.$requestParams";
-			$log->debug("Check cache with key: ".$cacheKey);
-			if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
-				$log->debug("Using cached items from: $serviceUrl for: ".Dumper($args));
-				my $resultItems = sliceResult($cache{$cacheKey}->{'data'},$args,0);
-				if(defined($cache{$cacheKey}->{'total'})) {
-					$log->debug("Returning: ".scalar(@$resultItems). " items of ".$cache{$cacheKey}->{'total'});
-					$cb->({items => $resultItems, total => $cache{$cacheKey}->{'total'}, offset => getOffset($args)});
+		getProtocolDescription2($client, $serviceId,
+			sub {
+				my $serviceId = shift;
+				my $protocolDescription = shift;
+				
+				my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+				my $request = $protocolDescription->{$searchRequest->{'request'}};
+
+				my $params = {
+				};
+				foreach my $param (@{$request->{'parameters'}}) {
+					if($param eq 'search') {
+						$params->{'search'} = $search;
+					}else { 
+						$params->{$param} = $request->{'values'}->{$param};
+					}
+				}
+				if(defined($args->{'quantity'}) && $args->{'quantity'} ne "") {
+					$params->{'count'} = int($args->{'quantity'});
+				}
+				if(defined($args->{'index'}) && $args->{'index'} ne "") {
+					$params->{'offset'} = int($args->{'index'});
 				}else {
-					$log->debug("Returning: ".scalar(@$resultItems). " items");
-					$cb->({items => $resultItems, offset => getOffset($args)});
+					$params->{'offset'} = 0;
 				}
-				return;
-			}
-			$log->info("Search $type from: $serviceUrl");
-			Slim::Networking::SimpleAsyncHTTP->new(
-				sub {
-					my $http = shift;
-					my $jsonResponse = from_json($http->content);
-					my @menus = ();
-					my $totalItems = undef;
-					if($jsonResponse->{'result'}) {
-						if(defined($jsonResponse->{'result'}->{'countAll'})) {
-							$totalItems =$jsonResponse->{'result'}->{'countAll'};
-						}
-						foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
-							my $menu = {
-								'name' => $item->{'text'},
-								'passthrough' => [
-									$serviceId,
-									$contextId,
-									{
-										'type' => $item->{'type'},
-										'id' => $item->{'id'},
-										'preferredChildItems' => $item->{'preferredChildItems'},
-										'parent' => undef
-									}
-								]
-							};
-							if(defined($item->{'image'})) {
-								$menu->{'image'} = $item->{'image'};
-							}
-							if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
-								$menu->{'url'} = \&serviceItemMenu;
-								if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
-									$menu->{'type'} = 'playlist';
-									if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
-										$menu->{'line1'} = $item->{'text'};
-										$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};						
-									}elsif(defined($item->{'itemAttributes'}->{'year'})) {
-										$menu->{'line1'} = $item->{'text'};
-										$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
-									}
-								}
-							}else {
-					        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
-								$menu->{'play'} = 'ickstream://'.$item->{'id'};
-								$menu->{'type'} = 'audio';
-								$menu->{'on_select'} => 'play';
-								$menu->{'playall'} => 1;
-								if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
-									$menu->{'line1'} = $item->{'text'};
-									$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'}." - ".$item->{'itemAttributes'}->{'album'}->{'name'};
-								}elsif(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
-									$menu->{'line1'} = $item->{'text'};
-									$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};
-								}elsif(defined($item->{'itemAttributes'}->{'album'})) {
-									$menu->{'line1'} = $item->{'text'};
-									$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
-								}
-									
-							}
-							push @menus,$menu;
-						}
-						$log->debug("Got ".scalar(@menus)." items");
+				my $requestParams = to_json({
+							'jsonrpc' => '2.0',
+							'id' => 1,
+							'method' => 'findItems',
+							'params' => $params
+						});
+				$log->debug("Using: ".Dumper($requestParams));
+				my $cacheKey = "$accessToken.$serviceId.$requestParams";
+				$log->debug("Check cache with key: ".$cacheKey);
+				if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
+					$log->debug("Using cached items from: $serviceUrl for: ".Dumper($args));
+					my $resultItems = sliceResult($cache{$cacheKey}->{'data'},$args,0);
+					if(defined($cache{$cacheKey}->{'total'})) {
+						$log->debug("Returning: ".scalar(@$resultItems). " items of ".$cache{$cacheKey}->{'total'});
+						$cb->({items => $resultItems, total => $cache{$cacheKey}->{'total'}, offset => getOffset($args)});
 					}else {
-						$log->warn("Error: ".Dumper($jsonResponse));
+						$log->debug("Returning: ".scalar(@$resultItems). " items");
+						$cb->({items => $resultItems, offset => getOffset($args)});
 					}
-					if(scalar(@menus)>0) {
-						$log->debug("Store in cache with key: ".$cacheKey);
-						if(defined($totalItems)) {
-							$cache{$cacheKey} = { 'data' =>\@menus, 'total' => $totalItems, 'time' => time()};
+					return;
+				}
+				$log->info("Search ".$params->{'type'}." from: $serviceUrl");
+				Slim::Networking::SimpleAsyncHTTP->new(
+					sub {
+						my $http = shift;
+						my $jsonResponse = from_json($http->content);
+						my @menus = ();
+						my $totalItems = undef;
+						if($jsonResponse->{'result'}) {
+							if(defined($jsonResponse->{'result'}->{'countAll'})) {
+								$totalItems =$jsonResponse->{'result'}->{'countAll'};
+							}
+							foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
+								my $menu;
+								if(defined($searchRequest->{'childItems'})) {
+									$menu = {
+										'name' => $item->{'text'},
+										'url' => \&serviceChildItemsMenu,
+										'passthrough' => [
+											$serviceId,
+											$searchRequest->{'childItems'},
+											{
+												'type' => $item->{'type'},
+												'id' => $item->{'id'},
+												'preferredChildRequest' => $item->{'preferredChildRequest'},
+												'parent' => undef
+											}
+										]
+									};
+								}elsif(defined($searchRequest->{'childRequest'})) {
+									$menu = {
+										'name' => $item->{'text'},
+										'url' => \&serviceChildRequestMenu,
+										'passthrough' => [
+											$serviceId,
+											$searchRequest->{'childRequest'},
+											{
+												'type' => $item->{'type'},
+												'id' => $item->{'id'},
+												'preferredChildRequest' => $item->{'preferredChildRequest'},
+												'parent' => undef
+											}
+										]
+									};
+								}elsif(defined($item->{'preferredChildRequest'})) {
+									$menu = {
+										'name' => $item->{'text'},
+										'url' => \&serviceChildRequestMenu,
+										'passthrough' => [
+											$serviceId,
+											{
+												'request' => $item->{'preferredChildRequest'}
+											},
+											{
+												'type' => $item->{'type'},
+												'id' => $item->{'id'},
+												'preferredChildRequest' => $item->{'preferredChildRequest'},
+												'parent' => undef
+											}
+										]
+									};
+								}else {
+									$menu = {
+										'name' => $item->{'text'}
+									};
+								}
+								
+								if(defined($item->{'image'})) {
+									$menu->{'image'} = $item->{'image'};
+								}
+								if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
+									if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
+										$menu->{'type'} = 'playlist';
+										if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+											$menu->{'line1'} = $item->{'text'};
+											$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};						
+										}elsif(defined($item->{'itemAttributes'}->{'year'})) {
+											$menu->{'line1'} = $item->{'text'};
+											$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
+										}
+									}
+								}else {
+						        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
+									$menu->{'play'} = 'ickstream://'.$item->{'id'};
+									$menu->{'type'} = 'audio';
+									$menu->{'on_select'} => 'play';
+									$menu->{'playall'} => 1;
+									if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+										$menu->{'line1'} = $item->{'text'};
+										$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'}." - ".$item->{'itemAttributes'}->{'album'}->{'name'};
+									}elsif(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+										$menu->{'line1'} = $item->{'text'};
+										$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};
+									}elsif(defined($item->{'itemAttributes'}->{'album'})) {
+										$menu->{'line1'} = $item->{'text'};
+										$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
+									}
+										
+								}
+								push @menus,$menu;
+							}
+							$log->debug("Got ".scalar(@menus)." items");
 						}else {
-							$cache{$cacheKey} = { 'data' =>\@menus, 'time' => time()};
+							$log->warn("Error: ".Dumper($jsonResponse));
 						}
-						my $resultItems = sliceResult(\@menus,$args,0);
-						if(defined($totalItems)) {
-							$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
-							$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
+						if(scalar(@menus)>0) {
+							$log->debug("Store in cache with key: ".$cacheKey);
+							if(defined($totalItems)) {
+								$cache{$cacheKey} = { 'data' =>\@menus, 'total' => $totalItems, 'time' => time()};
+							}else {
+								$cache{$cacheKey} = { 'data' =>\@menus, 'time' => time()};
+							}
+							my $resultItems = sliceResult(\@menus,$args,0);
+							if(defined($totalItems)) {
+								$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
+								$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
+							}else {
+								$log->debug("Returning: ".scalar(@$resultItems). " items");
+								$cb->({items => $resultItems, offset => getOffset($args)});
+							}
 						}else {
-							$log->debug("Returning: ".scalar(@$resultItems). " items");
-							$cb->({items => $resultItems, offset => getOffset($args)});
+							$cb->({items => [{
+								name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
+								type => 'textarea',
+			                }]});
 						}
-					}else {
-						$cb->({items => [{
-							name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
+					},
+					sub {
+						my $http = shift;
+						my $error = shift;
+						$log->warn("Failed to retrieve content service items from cloud: ".$error);
+						$cb->(items => [{
+							name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
 							type => 'textarea',
-		                }]});
-					}
-				},
-				sub {
-					my $http = shift;
-					my $error = shift;
-					$log->warn("Failed to retrieve content service items from cloud: ".$error);
-					$cb->(items => [{
-						name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
-						type => 'textarea',
-	                }]);
-				},
-				undef
-			)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);					
+		                }]);
+					},
+					undef
+				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);					
+		},
+		sub {
+			$log->warn("Failed to retrieve content services from cloud");
+			$cb->(items => [{
+				name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS'),
+				type => 'textarea',
+               }]);
+		});
 	}
 }
 
-my $typePriorities = {
-	'menu' => 1,
-	'category' => 2,
-	'artist' => 3,
-	'album' => 4,
-	'track' => 5,
-};
-
-sub compareTypes {
-	my $type1 = shift;
-	my $type2 = shift;
-	
-	return $typePriorities->{$type1} - $typePriorities->{$type2};
-}
-
-sub createChildRequestParameters {
-	my $protocolDescription = shift;
-	my $contextId = shift;
-	my $type = shift;
-	my $parent = shift;
-	my $excludedTypes = shift;
-	
-	
-	my $contextRequests = undef;
-	my $allMusicRequests = undef;
-	
-	if($protocolDescription->{'items'}) {
-		foreach my $context (@{$protocolDescription->{'items'}}) {
-			if($context->{'contextId'} eq $contextId) {
-				$contextRequests = $context->{'supportedRequests'};
-			}elsif($context->{'contextId'} eq 'allMusic') {
-				$allMusicRequests = $context->{'supportedRequests'};
-			}
-		}
-	}
-
-	my $params = undef;
-	if(!defined($parent->{'id'}) && defined($parent->{'type'})) {
-		$params = createChildRequestParametersFromContext($contextRequests, $contextId,$parent->{'type'},$parent,$excludedTypes);
-		if(!defined($params) && $contextId ne 'allMusic') {
-			$params = createChildRequestParametersFromContext($allMusicRequests, 'allMusic',$parent->{'type'},$parent,$excludedTypes);
-		}
-	}else {
-		$params = createChildRequestParametersFromContext($contextRequests, $contextId,undef,$parent,$excludedTypes);
-		if(!defined($params) && $contextId ne 'allMusic') {
-			$params = createChildRequestParametersFromContext($allMusicRequests, 'allMusic',undef,$parent,$excludedTypes);
-		}
-	}
-	return $params;
-
-}
-
-sub createChildRequestParametersFromContext {
-	my $supportedRequests = shift;
-	my $contextId = shift;
-	my $type = shift;
-	my $parent = shift;
-	my $excludedTypes = shift;
-	
-	my $possibleRequests = findPossibleRequests($supportedRequests,$contextId,$type,$parent);
-	my $supported = undef;
-	my $supportedParameters = {};
-	my $preferredSupportedParameters = {};
-	foreach my $possibleRequest (@{$possibleRequests}) {
-		if(defined($possibleRequest->{'type'}) && defined($excludedTypes) && grep(/^{$possibleRequest->{'type'}}$/,@$excludedTypes)) {
-			# We aren't interested in excluded types
-		}elsif(defined($parent) && defined($parent->{'id'}) && defined($parent->{'type'}) && (!defined($possibleRequest->{$parent->{'type'}.'Id'}) || $possibleRequest->{$parent->{'type'}.'Id'} ne $parent->{'id'})) {
-			# We aren't interested in requests unless they filter by parent item
-		}elsif(defined($parent) && !defined($parent->{'id'}) && (!defined($possibleRequest->{'type'}) || $possibleRequest->{'type'} ne $parent->{'type'})) {
-			# We aren't interested in requests if parent item is filtered by type and the request type is different
-		}elsif(scalar(keys %$supportedParameters) == (scalar(keys %$possibleRequest) + 1) &&
-			defined($supportedParameters->{'type'}) &&
-			!defined($possibleRequest->{'type'})) {
-				
-			# If we can request without type we should do that
-			$supportedParameters = $possibleRequest;
-		}elsif((scalar(keys %$supportedParameters) + 1) == scalar(keys %$possibleRequest) &&
-			!defined($supportedParameters->{'type'}) &&
-			defined($possibleRequest->{'type'})) {
-				
-			# Keep the old one, if we can request without type we should do that
-		}elsif(scalar(keys %$supportedParameters) < scalar(keys %$possibleRequest)) {
-			
-			# We should always prefer choices with more criterias
-			$supportedParameters = $possibleRequest;
-			if(defined($parent) && defined($parent->{'preferredChildItems'}) && scalar(@{$parent->{'preferredChildItems'}})>0 && $supportedParameters->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
-				$preferredSupportedParameters = $supportedParameters;
-			}
-		}elsif(scalar(keys %$supportedParameters) == scalar(keys %$possibleRequest) &&
-			compareTypes($supportedParameters,$possibleRequest) < 0) {
-				
-			# With equal preiority we should prefer items which show more items
-			$supportedParameters = $possibleRequest;
-			if(defined($parent) && defined($parent->{'preferredChildItems'}) && scalar(@{$parent->{'preferredChildItems'}})>0 && $supportedParameters->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
-				$preferredSupportedParameters = $supportedParameters;
-			}
-		}elsif(scalar(keys %$supportedParameters) == scalar(keys %$possibleRequest) &&
-			defined($parent) &&
-			!defined($supportedParameters->{$parent->{'type'}.'Id'}) &&
-			defined($possibleRequest->{$parent->{'type'}.'Id'})) {
-				
-			# With equal number of priority we should prefer items which filter by nearest parent
-			$supportedParameters = $possibleRequest;
-			if(defined($parent->{'preferredChildItems'}) && scalar(@{$parent->{'preferredChildItems'}})>0 && $supportedParameters->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
-				$preferredSupportedParameters = $supportedParameters;
-			}
-		}elsif(scalar(keys %$supportedParameters) == scalar(keys %$possibleRequest) &&
-			defined($parent) &&
-			defined($parent->{'preferredChildItems'}) &&
-			scalar(@{$parent->{'preferredChildItems'}})>0 &&
-			defined($possibleRequest->{'type'}) &&
-			$possibleRequest->{'type'} eq @{$parent->{'preferredChildItems'}}[0]) {
-				
-			# With equal number of priority we should prefer items which filter by nearest parent
-			$preferredSupportedParameters = $possibleRequest;
-		}
-
-	}
-	if(scalar(keys %$preferredSupportedParameters)>0) {
-		$supportedParameters = $preferredSupportedParameters;
-	}
-	
-	if(scalar(keys %$supportedParameters)>0) {
-		foreach my $supportedParameter (keys %$supportedParameters) {
-			if(($supportedParameter ne 'contextId' && $supportedParameter ne 'type') || !defined($parent->{'id'})) {
-				$supported = 1;
-			}
-		}
-	}
-	
-	if($supported) {
-		return $supportedParameters;
-	}else {
-		return undef;
-	}
-}
-
-sub findPossibleRequests {
-	my $supportedRequests = shift;
-	my $contextId = shift;
-	my $type = shift;
-	my $parent = shift;
-	
-	my @possibleRequests = ();
-	foreach my $request (@{$supportedRequests}) {
-		if(!defined($type) || (defined($request->{'type'}) && $request->{'type'} eq $type)) {
-			foreach my $parameters (@{$request->{'parameters'}}) {
-				my $unsupported = undef;
-				my $typeExists = undef;
-				foreach my $parameter (@{$parameters}) {
-					if($parameter ne 'contextId' && $parameter ne 'type' && (!defined($parent) || (defined($parent->{'id'}) && !getParameterFromParent($parameter,$parent)))) {
-						$unsupported = 1;
-					}
-					if($parameter eq 'type') {
-						$typeExists = 1;
-					}
-				}
-				if(defined($type) && !$typeExists) {
-					$unsupported = 1;
-				}
-				if(!$unsupported) {
-					my $possibleParameters = {};
-					foreach my $parameter (@{$parameters}) {
-						if($parameter eq 'type') {
-							$possibleParameters->{'type'} = (defined($type)?$type:$request->{'type'});
-						}elsif($parameter eq 'contextId') {
-							$possibleParameters->{'contextId'} = $contextId;
-						}else {
-							my $value = getParameterFromParent($parameter,$parent);
-							if(defined($value)) {
-								$possibleParameters->{$parameter} = $value;
-							}else {
-								$unsupported = 1;
-							}
-						}
-					}
-					if(!$unsupported) {
-						push @possibleRequests,$possibleParameters;
-					}
-				}
-					
-			}
-		}
-	}
-	return \@possibleRequests;
-}
 
 sub getParameterFromParent {
 	my $parameter = shift;
