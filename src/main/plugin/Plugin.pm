@@ -73,6 +73,10 @@ $prefs->migrate( 2, sub {
 	$prefs->set('squeezePlayPlayersEnabled',0);
 	1;
 });
+$prefs->migrate( 3, sub {
+	$prefs->set('squeezePlayPlayersEnabled',1);
+	1;
+});
 
 my $nextRequestedLocalServiceId = 2;
 
