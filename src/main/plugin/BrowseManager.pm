@@ -482,24 +482,35 @@ sub preferredServiceMenu {
 							}elsif($menu->{'type'} eq 'search') {
 								my $searchRequests = findSearchRequests($menu,$protocolEntries);
 								
-								my $entry = {
-									'name' => $menu->{'text'},
-									'type' => 'search',
-									'url' => sub {
-										my ($client, $cb, $params) = @_;
-										
-										my $searchMenu = searchMenu($client, {
-												search => lc($params->{search})
-											},
-											$cloudServiceEntries->{$serviceId},
-											$searchRequests);
-										
-										$cb->({
-											items => $searchMenu->{items}
-										});
-									}
-								};
-								push @menus,$entry;
+								if(scalar(@$searchRequests)==1) {
+									my $entry = {
+										'name' => $menu->{'text'},
+										'type' => 'search',
+										'url' => \&searchItemMenu,
+										'passthrough' => [$serviceId,$searchRequests->[0]]
+									};
+									push @menus,$entry;
+									
+								}else {
+									my $entry = {
+										'name' => $menu->{'text'},
+										'type' => 'search',
+										'url' => sub {
+											my ($client, $cb, $params) = @_;
+											
+											my $searchMenu = searchMenu($client, {
+													search => lc($params->{search})
+												},
+												$cloudServiceEntries->{$serviceId},
+												$searchRequests);
+											
+											$cb->({
+												items => $searchMenu->{items}
+											});
+										}
+									};
+									push @menus,$entry;
+								}
 							}
 						}
 
@@ -831,7 +842,11 @@ sub searchItemMenu {
 				};
 				foreach my $param (@{$request->{'parameters'}}) {
 					if($param eq 'search') {
-						$params->{'search'} = $search;
+						if(defined($search)) {
+							$params->{'search'} = $search;
+						}else {
+							$params->{'search'} = $args->{'search'};
+						}
 					}else { 
 						$params->{$param} = $request->{'values'}->{$param};
 					}
