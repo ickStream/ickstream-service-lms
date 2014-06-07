@@ -168,8 +168,16 @@ sub updateAddressOrRegisterPlayer {
 	my $cloudCoreUrl = undef;
 	if(defined($playerConfiguration->{'cloudCoreUrl'})) {
 		$cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'};
+	}elsif(defined($prefs->get('cloudCoreUrl'))) {
+		$cloudCoreUrl = $prefs->get('cloudCoreUrl');
+		$playerConfiguration->{'cloudCoreUrl'} = $cloudCoreUrl;
+		$prefs->set('player_'.$player->id,$playerConfiguration);
 	}else {
 		$cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		if(defined($playerConfiguration->{'cloudCoreUrl'})) {
+			$playerConfiguration->{'cloudCoreUrl'} = undef;
+			$prefs->set('player_'.$player->id,$playerConfiguration);
+		}
 	}
 	
 	if(!defined($playerConfiguration->{'accessToken'})) {

@@ -73,7 +73,10 @@ sub handler {
 	my $port = $serverPrefs->get('httpport');
 	my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
 
-	$params->{'authenticationUrl'} = 'https://api.ickstream.com/ickstream-cloud-core/oauth?redirect_uri='.$serverUrl.'&client_id=C5589EF9-9C28-4556-942A-765E698215F1';
+	my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	my $authenticationUrl = $cloudCoreUrl;
+	$authenticationUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
+	$params->{'authenticationUrl'} = $authenticationUrl.'/ickstream-cloud-core/oauth?redirect_uri='.$serverUrl.'&client_id=C5589EF9-9C28-4556-942A-765E698215F1';
         
 	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
 		my $val = $params->{'pref_password'};
@@ -104,8 +107,10 @@ sub handler {
 	}
 	
 	if($prefs->get('accessToken')) {
-		$params->{'manageAccountUrl'} = 'https://api.ickstream.com';
 		my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		my $manageAccountUrl = $cloudCoreUrl;
+		$manageAccountUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
+		$params->{'manageAccountUrl'} = $manageAccountUrl;
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				my $http = shift;
@@ -178,6 +183,10 @@ sub handleAuthenticationFinished {
 	    my $port = $serverPrefs->get('httpport');
 	    my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
 
+		my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		my $cloudCoreToken = $cloudCoreUrl;
+		$cloudCoreToken =~ s/^(https?:\/\/.*?)\/.*/\1/;
+
 		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
@@ -186,7 +195,6 @@ sub handleAuthenticationFinished {
 				if(defined($jsonResponse->{'access_token'})) {
 					$log->info("Successfully authenticated user");
 					
-					my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 					$log->info("Register LMS as controller device");
 					my $uuid = $prefs->get('controller_uuid');
 					if(!defined($uuid)) {
@@ -286,7 +294,7 @@ sub handleAuthenticationFinished {
 				&{$callback}($client,$params,$output,$httpClient,$response);
 			},
 			$params
-		)->get("https://api.ickstream.com/ickstream-cloud-core/oauth/token?redirect_uri=".$serverUrl."&code=".$params->{'code'},'Content-Type' => 'application/json');
+		)->get($cloudCoreToken."/ickstream-cloud-core/oauth/token?redirect_uri=".$serverUrl."&code=".$params->{'code'},'Content-Type' => 'application/json');
 	}
 	return undef;
 }
