@@ -257,9 +257,7 @@ sub topLevel {
 				if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
 					$log->debug("Using cached content services from cloud for: ".Dumper($args));
 					my $items = $cache{$cacheKey}->{'data'};
-					my $resultItems = sliceResult($items,$args);
-					$log->debug("Returning: ".scalar(@$resultItems). " items");
-					$cb->({items => $resultItems, offset => getOffset($args)});
+					processTopLevel($client, $items,$args, $cb);
 					return;
 				}
 				$log->info("Retrieve content services from cloud using ".$cloudCoreUrl);
@@ -267,34 +265,9 @@ sub topLevel {
 							sub {
 								my $http = shift;
 								my $jsonResponse = from_json($http->content);
-								$cloudServiceEntries = {};
-								my @services = ();
-								if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
-									foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
-										$log->debug("Found ".$service->{'name'});
-										$cloudServiceEntries->{$service->{'id'}} = $service;
-										my $serviceEntry = {
-											name => $service->{'name'},
-											url => \&preferredServiceMenu,
-											passthrough => [$service->{'id'}]
-										};
-										push @services,$serviceEntry;
-									}
-									$log->debug("Got ".scalar(@services)." items");
-								}else {
-									$log->warn("Error: ".Dumper($jsonResponse));
-								}
-								if(scalar(@services)>0) {
-									#$cache{$cacheKey} = { 'data' => \@services, 'time' => time()};
-									my $resultItems = sliceResult(\@services,$args);
-									$log->debug("Returning: ".scalar(@$resultItems). " items");
-									$cb->({items => $resultItems, offset => getOffset($args)});
-								}else {
-									$cb->({items => [{
-										name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_ADD_SERVICES'),
-										type => 'textarea',
-					                }]});
-								}
+								$log->debug("Store in cache with key: ".$cacheKey);
+								$cache{$cacheKey} = { 'data' => $jsonResponse, 'time' => time()};
+								processTopLevel($client, $jsonResponse,$args, $cb);
 							},
 							sub {
 								my $http = shift;
@@ -309,6 +282,41 @@ sub topLevel {
 						)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);
 
 		}
+}
+
+sub processTopLevel {
+	my $client = shift;
+	my $jsonResponse = shift;
+	my $args = shift;
+	my $cb = shift;
+	
+	$cloudServiceEntries = {};
+	my @services = ();
+	if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
+		foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
+			$log->debug("Found ".$service->{'name'});
+			$cloudServiceEntries->{$service->{'id'}} = $service;
+			my $serviceEntry = {
+				name => $service->{'name'},
+				url => \&preferredServiceMenu,
+				passthrough => [$service->{'id'}]
+			};
+			push @services,$serviceEntry;
+		}
+		$log->debug("Got ".scalar(@services)." items");
+	}else {
+		$log->warn("Error: ".Dumper($jsonResponse));
+	}
+	if(scalar(@services)>0) {
+		my $resultItems = sliceResult(\@services,$args);
+		$log->debug("Returning: ".scalar(@$resultItems). " items");
+		$cb->({items => $resultItems, offset => getOffset($args)});
+	}else {
+		$cb->({items => [{
+			name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_ADD_SERVICES'),
+			type => 'textarea',
+              }]});
+	}
 }
 
 sub getProtocolDescription2 {
@@ -661,14 +669,8 @@ sub serviceChildRequestMenu {
 				$log->debug("Check cache with key: ".$cacheKey);
 				if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
 					$log->debug("Using cached items from: $serviceUrl for: ".Dumper($args));
-					my $resultItems = sliceResult($cache{$cacheKey}->{'data'},$args,0);
-					if(defined($cache{$cacheKey}->{'total'})) {
-						$log->debug("Returning: ".scalar(@$resultItems). " items of ".$cache{$cacheKey}->{'total'});
-						$cb->({items => $resultItems, total => $cache{$cacheKey}->{'total'}, offset => getOffset($args)});
-					}else {
-						$log->debug("Returning: ".scalar(@$resultItems). " items");
-						$cb->({items => $resultItems, offset => getOffset($args)});
-					}
+					my $jsonResponse = $cache{$cacheKey}->{'data'};
+					processServiceChildRequestMenu($client, $serviceId,$childRequest,$parent, $jsonResponse,$args, $cb);
 					return;
 				}
 				$log->info("Retriving items from: $serviceUrl");
@@ -676,126 +678,9 @@ sub serviceChildRequestMenu {
 							sub {
 								my $http = shift;
 								my $jsonResponse = from_json($http->content);
-								my @menus = ();
-								my $totalItems = undef;
-								if($jsonResponse->{'result'}) {
-									if(defined($jsonResponse->{'result'}->{'countAll'})) {
-										$totalItems =$jsonResponse->{'result'}->{'countAll'};
-									}
-									foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
-										my $menu;
-										if(defined($childRequest->{'childItems'})) {
-											$menu = {
-												'name' => $item->{'text'},
-												'url' => \&serviceChildItemsMenu,
-												'passthrough' => [
-													$serviceId,
-													$childRequest->{'childItems'},
-													{
-														'type' => $item->{'type'},
-														'id' => $item->{'id'},
-														'preferredChildRequest' => $item->{'preferredChildRequest'},
-														'parent' => $parent
-													}
-												]
-											};
-										}elsif(defined($childRequest->{'childRequest'})) {
-											$menu = {
-												'name' => $item->{'text'},
-												'url' => \&serviceChildRequestMenu,
-												'passthrough' => [
-													$serviceId,
-													$childRequest->{'childRequest'},
-													{
-														'type' => $item->{'type'},
-														'id' => $item->{'id'},
-														'preferredChildRequest' => $item->{'preferredChildRequest'},
-														'parent' => $parent
-													}
-												]
-											};
-										}elsif(defined($item->{'preferredChildRequest'})) {
-											$menu = {
-												'name' => $item->{'text'},
-												'url' => \&serviceChildRequestMenu,
-												'passthrough' => [
-													$serviceId,
-													{
-														'request' => $item->{'preferredChildRequest'}
-													},
-													{
-														'type' => $item->{'type'},
-														'id' => $item->{'id'},
-														'preferredChildRequest' => $item->{'preferredChildRequest'},
-														'parent' => $parent
-													}
-												]
-											};
-										}else {
-											$menu = {
-												'name' => $item->{'text'}
-											};
-										}
-										if(defined($item->{'image'})) {
-											$menu->{'image'} = $item->{'image'};
-										}
-
-										if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
-											if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
-												$menu->{'type'} = 'playlist';
-												if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'artist' || !defined($parent->{'id'}))) {
-													$menu->{'line1'} = $item->{'text'};
-													$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};						
-												}elsif(defined($item->{'itemAttributes'}->{'year'})) {
-													$menu->{'line1'} = $item->{'text'};
-													$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
-												}
-											}
-										}else {
-								        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
-											$menu->{'play'} = 'ickstream://'.$item->{'id'};
-											$menu->{'type'} = 'audio';
-											$menu->{'on_select'} = 'play';
-											$menu->{'playall'} = 1;
-											if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'album' || !defined($parent->{'id'}))) {
-												$menu->{'line1'} = $item->{'text'};
-												$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'}." - ".$item->{'itemAttributes'}->{'album'}->{'name'};
-											}elsif(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
-												$menu->{'line1'} = $item->{'text'};
-												$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};
-											}elsif(defined($item->{'itemAttributes'}->{'album'})) {
-												$menu->{'line1'} = $item->{'text'};
-												$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
-											}
-												
-										}
-										push @menus,$menu;
-									}
-									$log->debug("Got ".scalar(@menus)." items");
-								}else {
-									$log->warn("Error: ".Dumper($jsonResponse));
-								}
-								if(scalar(@menus)>0) {
-									$log->debug("Store in cache with key: ".$cacheKey);
-									if(defined($totalItems)) {
-										$cache{$cacheKey} = { 'data' =>\@menus, 'total' => $totalItems, 'time' => time()};
-									}else {
-										$cache{$cacheKey} = { 'data' =>\@menus, 'time' => time()};
-									}
-									my $resultItems = sliceResult(\@menus,$args,0);
-									if(defined($totalItems)) {
-										$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
-										$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
-									}else {
-										$log->debug("Returning: ".scalar(@$resultItems). " items");
-										$cb->({items => $resultItems, offset => getOffset($args)});
-									}
-								}else {
-									$cb->({items => [{
-										name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
-										type => 'textarea',
-					                }]});
-								}
+								$log->debug("Store in cache with key: ".$cacheKey);
+								$cache{$cacheKey} = { 'data' =>$jsonResponse, 'time' => time()};
+								processServiceChildRequestMenu($client, $serviceId,$childRequest,$parent, $jsonResponse,$args, $cb);
 							},
 							sub {
 								my $http = shift;
@@ -819,6 +704,130 @@ sub serviceChildRequestMenu {
 	}
 }
 
+sub processServiceChildRequestMenu {
+	my $client = shift;
+	my $serviceId = shift;
+	my $childRequest = shift;
+	my $parent = shift;
+	my $jsonResponse = shift;
+	my $args = shift;
+	my $cb = shift;
+
+	my @menus = ();
+	my $totalItems = undef;
+	if($jsonResponse->{'result'}) {
+		if(defined($jsonResponse->{'result'}->{'countAll'})) {
+			$totalItems =$jsonResponse->{'result'}->{'countAll'};
+		}
+		foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
+			my $menu;
+			if(defined($childRequest->{'childItems'})) {
+				$menu = {
+					'name' => $item->{'text'},
+					'url' => \&serviceChildItemsMenu,
+					'passthrough' => [
+						$serviceId,
+						$childRequest->{'childItems'},
+						{
+							'type' => $item->{'type'},
+							'id' => $item->{'id'},
+							'preferredChildRequest' => $item->{'preferredChildRequest'},
+							'parent' => $parent
+						}
+					]
+				};
+			}elsif(defined($childRequest->{'childRequest'})) {
+				$menu = {
+					'name' => $item->{'text'},
+					'url' => \&serviceChildRequestMenu,
+					'passthrough' => [
+						$serviceId,
+						$childRequest->{'childRequest'},
+						{
+							'type' => $item->{'type'},
+							'id' => $item->{'id'},
+							'preferredChildRequest' => $item->{'preferredChildRequest'},
+							'parent' => $parent
+						}
+					]
+				};
+			}elsif(defined($item->{'preferredChildRequest'})) {
+				$menu = {
+					'name' => $item->{'text'},
+					'url' => \&serviceChildRequestMenu,
+					'passthrough' => [
+						$serviceId,
+						{
+							'request' => $item->{'preferredChildRequest'}
+						},
+						{
+							'type' => $item->{'type'},
+							'id' => $item->{'id'},
+							'preferredChildRequest' => $item->{'preferredChildRequest'},
+							'parent' => $parent
+						}
+					]
+				};
+			}else {
+				$menu = {
+					'name' => $item->{'text'}
+				};
+			}
+			if(defined($item->{'image'})) {
+				$menu->{'image'} = $item->{'image'};
+			}
+
+			if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
+				if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
+					$menu->{'type'} = 'playlist';
+					if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'artist' || !defined($parent->{'id'}))) {
+						$menu->{'line1'} = $item->{'text'};
+						$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};						
+					}elsif(defined($item->{'itemAttributes'}->{'year'})) {
+						$menu->{'line1'} = $item->{'text'};
+						$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
+					}
+				}
+			}else {
+	        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
+				$menu->{'play'} = 'ickstream://'.$item->{'id'};
+				$menu->{'type'} = 'audio';
+				$menu->{'on_select'} = 'play';
+				$menu->{'playall'} = 1;
+				if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0]) && ($parent->{'type'} ne 'album' || !defined($parent->{'id'}))) {
+					$menu->{'line1'} = $item->{'text'};
+					$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'}." - ".$item->{'itemAttributes'}->{'album'}->{'name'};
+				}elsif(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+					$menu->{'line1'} = $item->{'text'};
+					$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};
+				}elsif(defined($item->{'itemAttributes'}->{'album'})) {
+					$menu->{'line1'} = $item->{'text'};
+					$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
+				}
+					
+			}
+			push @menus,$menu;
+		}
+		$log->debug("Got ".scalar(@menus)." items");
+	}else {
+		$log->warn("Error: ".Dumper($jsonResponse));
+	}
+	if(scalar(@menus)>0) {
+		my $resultItems = sliceResult(\@menus,$args,0);
+		if(defined($totalItems)) {
+			$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
+			$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
+		}else {
+			$log->debug("Returning: ".scalar(@$resultItems). " items");
+			$cb->({items => $resultItems, offset => getOffset($args)});
+		}
+	}else {
+		$cb->({items => [{
+			name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
+			type => 'textarea',
+              }]});
+	}
+}
 
 sub searchItemMenu {
 	my ($client, $cb, $args, $serviceId, $searchRequest, $search) = @_;
@@ -870,14 +879,8 @@ sub searchItemMenu {
 				$log->debug("Check cache with key: ".$cacheKey);
 				if((time() - $cache{$cacheKey}->{'time'}) < CACHE_TIME) {
 					$log->debug("Using cached items from: $serviceUrl for: ".Dumper($args));
-					my $resultItems = sliceResult($cache{$cacheKey}->{'data'},$args,0);
-					if(defined($cache{$cacheKey}->{'total'})) {
-						$log->debug("Returning: ".scalar(@$resultItems). " items of ".$cache{$cacheKey}->{'total'});
-						$cb->({items => $resultItems, total => $cache{$cacheKey}->{'total'}, offset => getOffset($args)});
-					}else {
-						$log->debug("Returning: ".scalar(@$resultItems). " items");
-						$cb->({items => $resultItems, offset => getOffset($args)});
-					}
+					my $jsonResponse = $cache{$cacheKey}->{'data'};
+					processServiceItemMenu($client,$serviceId,$searchRequest, $jsonResponse,$args,$cb);
 					return;
 				}
 				$log->info("Search ".$params->{'type'}." from: $serviceUrl");
@@ -885,126 +888,9 @@ sub searchItemMenu {
 					sub {
 						my $http = shift;
 						my $jsonResponse = from_json($http->content);
-						my @menus = ();
-						my $totalItems = undef;
-						if($jsonResponse->{'result'}) {
-							if(defined($jsonResponse->{'result'}->{'countAll'})) {
-								$totalItems =$jsonResponse->{'result'}->{'countAll'};
-							}
-							foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
-								my $menu;
-								if(defined($searchRequest->{'childItems'})) {
-									$menu = {
-										'name' => $item->{'text'},
-										'url' => \&serviceChildItemsMenu,
-										'passthrough' => [
-											$serviceId,
-											$searchRequest->{'childItems'},
-											{
-												'type' => $item->{'type'},
-												'id' => $item->{'id'},
-												'preferredChildRequest' => $item->{'preferredChildRequest'},
-												'parent' => undef
-											}
-										]
-									};
-								}elsif(defined($searchRequest->{'childRequest'})) {
-									$menu = {
-										'name' => $item->{'text'},
-										'url' => \&serviceChildRequestMenu,
-										'passthrough' => [
-											$serviceId,
-											$searchRequest->{'childRequest'},
-											{
-												'type' => $item->{'type'},
-												'id' => $item->{'id'},
-												'preferredChildRequest' => $item->{'preferredChildRequest'},
-												'parent' => undef
-											}
-										]
-									};
-								}elsif(defined($item->{'preferredChildRequest'})) {
-									$menu = {
-										'name' => $item->{'text'},
-										'url' => \&serviceChildRequestMenu,
-										'passthrough' => [
-											$serviceId,
-											{
-												'request' => $item->{'preferredChildRequest'}
-											},
-											{
-												'type' => $item->{'type'},
-												'id' => $item->{'id'},
-												'preferredChildRequest' => $item->{'preferredChildRequest'},
-												'parent' => undef
-											}
-										]
-									};
-								}else {
-									$menu = {
-										'name' => $item->{'text'}
-									};
-								}
-								
-								if(defined($item->{'image'})) {
-									$menu->{'image'} = $item->{'image'};
-								}
-								if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
-									if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
-										$menu->{'type'} = 'playlist';
-										if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
-											$menu->{'line1'} = $item->{'text'};
-											$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};						
-										}elsif(defined($item->{'itemAttributes'}->{'year'})) {
-											$menu->{'line1'} = $item->{'text'};
-											$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
-										}
-									}
-								}else {
-						        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
-									$menu->{'play'} = 'ickstream://'.$item->{'id'};
-									$menu->{'type'} = 'audio';
-									$menu->{'on_select'} => 'play';
-									$menu->{'playall'} => 1;
-									if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
-										$menu->{'line1'} = $item->{'text'};
-										$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'}." - ".$item->{'itemAttributes'}->{'album'}->{'name'};
-									}elsif(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
-										$menu->{'line1'} = $item->{'text'};
-										$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};
-									}elsif(defined($item->{'itemAttributes'}->{'album'})) {
-										$menu->{'line1'} = $item->{'text'};
-										$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
-									}
-										
-								}
-								push @menus,$menu;
-							}
-							$log->debug("Got ".scalar(@menus)." items");
-						}else {
-							$log->warn("Error: ".Dumper($jsonResponse));
-						}
-						if(scalar(@menus)>0) {
-							$log->debug("Store in cache with key: ".$cacheKey);
-							if(defined($totalItems)) {
-								$cache{$cacheKey} = { 'data' =>\@menus, 'total' => $totalItems, 'time' => time()};
-							}else {
-								$cache{$cacheKey} = { 'data' =>\@menus, 'time' => time()};
-							}
-							my $resultItems = sliceResult(\@menus,$args,0);
-							if(defined($totalItems)) {
-								$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
-								$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
-							}else {
-								$log->debug("Returning: ".scalar(@$resultItems). " items");
-								$cb->({items => $resultItems, offset => getOffset($args)});
-							}
-						}else {
-							$cb->({items => [{
-								name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
-								type => 'textarea',
-			                }]});
-						}
+						$log->debug("Store in cache with key: ".$cacheKey);
+						$cache{$cacheKey} = { 'data' =>$jsonResponse, 'time' => time()};
+						processServiceItemMenu($client,$serviceId,$searchRequest, $jsonResponse,$args,$cb);
 					},
 					sub {
 						my $http = shift;
@@ -1028,6 +914,129 @@ sub searchItemMenu {
 	}
 }
 
+sub processServiceItemMenu {
+	my $client = shift;
+	my $serviceId = shift;
+	my $searchRequest = shift;
+	my $jsonResponse = shift;
+	my $args = shift;
+	my $cb = shift;
+	
+	my @menus = ();
+	my $totalItems = undef;
+	if($jsonResponse->{'result'}) {
+		if(defined($jsonResponse->{'result'}->{'countAll'})) {
+			$totalItems =$jsonResponse->{'result'}->{'countAll'};
+		}
+		foreach my $item (@{$jsonResponse->{'result'}->{'items'}}) {
+			my $menu;
+			if(defined($searchRequest->{'childItems'})) {
+				$menu = {
+					'name' => $item->{'text'},
+					'url' => \&serviceChildItemsMenu,
+					'passthrough' => [
+						$serviceId,
+						$searchRequest->{'childItems'},
+						{
+							'type' => $item->{'type'},
+							'id' => $item->{'id'},
+							'preferredChildRequest' => $item->{'preferredChildRequest'},
+							'parent' => undef
+						}
+					]
+				};
+			}elsif(defined($searchRequest->{'childRequest'})) {
+				$menu = {
+					'name' => $item->{'text'},
+					'url' => \&serviceChildRequestMenu,
+					'passthrough' => [
+						$serviceId,
+						$searchRequest->{'childRequest'},
+						{
+							'type' => $item->{'type'},
+							'id' => $item->{'id'},
+							'preferredChildRequest' => $item->{'preferredChildRequest'},
+							'parent' => undef
+						}
+					]
+				};
+			}elsif(defined($item->{'preferredChildRequest'})) {
+				$menu = {
+					'name' => $item->{'text'},
+					'url' => \&serviceChildRequestMenu,
+					'passthrough' => [
+						$serviceId,
+						{
+							'request' => $item->{'preferredChildRequest'}
+						},
+						{
+							'type' => $item->{'type'},
+							'id' => $item->{'id'},
+							'preferredChildRequest' => $item->{'preferredChildRequest'},
+							'parent' => undef
+						}
+					]
+				};
+			}else {
+				$menu = {
+					'name' => $item->{'text'}
+				};
+			}
+			
+			if(defined($item->{'image'})) {
+				$menu->{'image'} = $item->{'image'};
+			}
+			if($item->{'type'} ne 'track' && $item->{'type'} ne 'stream') {
+				if($item->{'type'} eq 'album' || $item->{'type'} eq 'playlist') {
+					$menu->{'type'} = 'playlist';
+					if(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+						$menu->{'line1'} = $item->{'text'};
+						$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};						
+					}elsif(defined($item->{'itemAttributes'}->{'year'})) {
+						$menu->{'line1'} = $item->{'text'};
+						$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
+					}
+				}
+			}else {
+	        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
+				$menu->{'play'} = 'ickstream://'.$item->{'id'};
+				$menu->{'type'} = 'audio';
+				$menu->{'on_select'} => 'play';
+				$menu->{'playall'} => 1;
+				if(defined($item->{'itemAttributes'}->{'album'}) && defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+					$menu->{'line1'} = $item->{'text'};
+					$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'}." - ".$item->{'itemAttributes'}->{'album'}->{'name'};
+				}elsif(defined($item->{'itemAttributes'}->{'mainArtists'}) && defined($item->{'itemAttributes'}->{'mainArtists'}[0])) {
+					$menu->{'line1'} = $item->{'text'};
+					$menu->{'line2'} = $item->{'itemAttributes'}->{'mainArtists'}[0]->{'name'};
+				}elsif(defined($item->{'itemAttributes'}->{'album'})) {
+					$menu->{'line1'} = $item->{'text'};
+					$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
+				}
+					
+			}
+			push @menus,$menu;
+		}
+		$log->debug("Got ".scalar(@menus)." items");
+	}else {
+		$log->warn("Error: ".Dumper($jsonResponse));
+	}
+	if(scalar(@menus)>0) {
+		my $resultItems = sliceResult(\@menus,$args,0);
+		if(defined($totalItems)) {
+			$log->debug("Returning: ".scalar(@$resultItems). " items of ".$totalItems);
+			$cb->({items => $resultItems, total => $totalItems, offset => getOffset($args)});
+		}else {
+			$log->debug("Returning: ".scalar(@$resultItems). " items");
+			$cb->({items => $resultItems, offset => getOffset($args)});
+		}
+	}else {
+		$cb->({items => [{
+			name => cstring($client, 'PLUGIN_ICKSTREAM_BROWSE_NO_ITEMS'),
+			type => 'textarea',
+              }]});
+	}
+}
 
 sub getParameterFromParent {
 	my $parameter = shift;
