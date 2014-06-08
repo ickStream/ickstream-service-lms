@@ -49,6 +49,7 @@ my $prefs  = preferences('plugin.ickstream');
 my $serverPrefs = preferences('server');
 
 my $KEY = undef;
+my $artistImages = undef;
 
 # this array provides a function for each supported JSON method
 my %methods = (
@@ -67,6 +68,9 @@ my %methods = (
 sub init {
 	my $plugin = shift;
 	$KEY = Slim::Utils::PluginManager->dataForPlugin($plugin)->{'id'};
+	if($::VERSION ge '7.8') {
+		$artistImages = grep(/MusicArtistInfo/, Slim::Utils::PluginManager->enabledPlugins(undef));
+	}
 }
 
 sub getProtocolDescription {
@@ -1314,6 +1318,9 @@ sub processArtistResult {
 				'name' => $artistName
 			}
 		};
+		if($artistImages) {
+			$item->{'image'} = "service://".getServiceId()."/imageproxy/mai/artist/".$artistId."/image.png";
+		}
 		
 		push @items,$item;
 	}
