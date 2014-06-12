@@ -79,11 +79,13 @@ sub handler {
 	$params->{'authenticationUrl'} = $authenticationUrl.'/ickstream-cloud-core/oauth?redirect_uri='.$serverUrl.'&client_id=C5589EF9-9C28-4556-942A-765E698215F1';
         
 	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
+		$log->debug("Verifying password");
 		my $val = $params->{'pref_password'};
 		if ($val ne $params->{'pref_password_repeat'}) {
 			$params->{'warning'} .= Slim::Utils::Strings::string('SETUP_PASSWORD_MISMATCH') . ' ';
 		}else {
 			if(Crypt::Tea::decrypt($prefs->get('password'),$KEY) ne $params->{'pref_password'}) {
+				$log->debug("Saving password");
 				$prefs->set('password',Crypt::Tea::encrypt($params->{'pref_password'},$KEY));
 			}
 		}
@@ -99,8 +101,10 @@ sub handler {
 	}
 	
 	if ($params->{'logout'}) {
+		$log->debug("Uninitializing players");
 		my @players = Slim::Player::Client::clients();
 		foreach my $player (@players) {
+			$log->debug("Uninitializing player ".$player->name());
 			Plugins::IckStreamPlugin::PlayerManager::uninitializePlayer($player);
 		}
 		$prefs->set('accessToken',undef);
@@ -111,20 +115,24 @@ sub handler {
 		my $manageAccountUrl = $cloudCoreUrl;
 		$manageAccountUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
 		$params->{'manageAccountUrl'} = $manageAccountUrl;
+		$log->debug("Retrieving information about user account");
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				my $http = shift;
 				my $jsonResponse = from_json($http->content);
 				if(defined($jsonResponse->{'result'})) {
+					$log->debug("Logged in user is: ".$jsonResponse->{'result'}->{'name'});
 					$params->{'authenticationName'} = $jsonResponse->{'result'}->{'name'};
 					my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
 					&{$callback}($client,$params,$result,$httpClient,$response);
 				}else {
+					$log->debug("Unable to get logged in user");
 					my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
 					&{$callback}($client,$params,$result,$httpClient,$response);
 				}
 			},
 			sub {
+				$log->debug("Error when getting logged in user");
 				my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
 				&{$callback}($client,$params,$result,$httpClient,$response);
 			},
@@ -138,6 +146,7 @@ sub handler {
 		}));
 		return undef;
 	}else {
+		$log->debug("Not logged in");
 		return finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
 	}
 }
@@ -148,8 +157,13 @@ sub finalizeHandler {
 	my @players = Slim::Player::Client::clients();
 	my @initializedPlayers = ();
 	foreach my $player (@players) {
+		$log->debug("Check if ".$player->name()." is initialized already");
 		if(Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
+			$log->debug($player->name()." is initialized already");
 			push @initializedPlayers, $player;
+		}
+		if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
+			$log->debug($player->name()." is not yet registered");
 		}
 	}
 	if(scalar(@initializedPlayers)>0) {
@@ -159,16 +173,36 @@ sub finalizeHandler {
 	my $result = $class->SUPER::handler($client, $params);
 	if($params->{'enabledSqueezePlayPlayers'}) {
 		my @players = Slim::Player::Client::clients();
+		$log->debug("Found ".scalar(@players)." players");
 		foreach my $player (@players) {
 			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
+				$log->debug("Trying to initialize ".$player->name());
 				Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
 			}
 		}
 	}elsif($params->{'disabledSqueezePlayPlayers'}) {
 		my @players = Slim::Player::Client::clients();
+		$log->debug("Found ".scalar(@players)." players");
 		foreach my $player (@players) {
 			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
+				$log->debug("Uninitializing ".$player->name());
 				Plugins::IckStreamPlugin::PlayerManager::uninitializePlayer($player);
+			}
+		}
+	}elsif($params->{'register_players'}) {
+		my @players = Slim::Player::Client::clients();
+		$log->debug("Found ".scalar(@players)." players");
+		foreach my $player (@players) {
+			if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
+				if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
+					$log->debug("Trying to initialize ".$player->name());
+					Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
+				}elsif(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
+					$log->debug("Trying to register ".$player->name());
+					Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player);
+				}else {
+					$log->debug($player->name()." is already initialized and registered");
+				}
 			}
 		}
 	}
@@ -179,6 +213,7 @@ sub handleAuthenticationFinished {
     my ($client, $params, $callback, $httpClient, $response) = @_;
 
 	if(defined($params->{'code'})) {
+		$log->debug("Authorization code successfully retrieved");
 	    my $serverIP = Slim::Utils::IPDetect::IP();
 	    my $port = $serverPrefs->get('httpport');
 	    my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
@@ -188,6 +223,7 @@ sub handleAuthenticationFinished {
 		$cloudCoreToken =~ s/^(https?:\/\/.*?)\/.*/\1/;
 
 		my $httpParams = { timeout => 35 };
+		$log->debug("Retrieving token from ".$cloudCoreToken);
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				my $http = shift;
@@ -205,11 +241,13 @@ sub handleAuthenticationFinished {
 					if(!defined($serverName) || $serverName eq '') {
 					                $serverName = Slim::Utils::Network::hostName();
 			        }
+					$log->debug("Registering LMS as device via ".$cloudCoreUrl);
 					Slim::Networking::SimpleAsyncHTTP->new(
 								sub {
 									my $http = shift;
 									my $jsonResponse = from_json($http->content);
 									if(defined($jsonResponse->{'result'})) {
+										$log->debug("Successfully got a device registration token");
 										Slim::Networking::SimpleAsyncHTTP->new(
 											sub {
 												my $http = shift;
@@ -222,7 +260,7 @@ sub handleAuthenticationFinished {
 													my @players = Slim::Player::Client::clients();
 													foreach my $player (@players) {
 														if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
-															$log->debug("Processing player: ".$player->name());
+															$log->debug("Initializing player: ".$player->name());
 															Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
 														}
 													}

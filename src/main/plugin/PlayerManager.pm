@@ -57,12 +57,14 @@ sub playerChange {
 		if(!$initializedPlayerDaemon) {
 			return;
 		}
-		if(defined($player) && $request->isCommand([['client'],['new']]) || $request->isCommand([['client'],['reconnect']])) {
+		if(defined($player) && ($request->isCommand([['client'],['new']]) || $request->isCommand([['client'],['reconnect']]))) {
 			$log->info("New or reconnected player: ".$player->name());
 			initializePlayer($player);
 		}elsif(defined($player) && $request->isCommand([['client'],['disconnect']])) {
 			$log->info("Disconnected player: ".$player->name());
 			uninitializePlayer($player);
+		}else {
+			$log->debug("Unhandled player event ".$request->getRequestString()." for ".$player->name());
 		}
 }
 
@@ -70,6 +72,14 @@ sub isPlayerInitialized {
 	my $player = shift;
 	
 	return defined($initializedPlayers->{$player->id});
+}
+
+sub isPlayerRegistered {
+	my $player = shift;
+
+	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+
+	return defined($playerConfiguration->{'accessToken'});
 }
 
 sub playerEnabledQuery {
@@ -130,6 +140,8 @@ sub initializePlayer {
 				updateAddressOrRegisterPlayer($player);
 			}
 
+		}else {
+			$log->debug("Player ".$player->name()." already initialized");
 		}
 	}
 }
@@ -189,7 +201,7 @@ sub updateAddressOrRegisterPlayer {
 		}
 		my $uuid = $playerConfiguration->{'uuid'};
 		my $serverIP = Slim::Utils::IPDetect::IP();
-		$log->debug("Trying to set player address in cloud to verify if its access token works");
+		$log->debug("Trying to set player address in cloud to verify if its access token works through: ".$cloudCoreUrl);
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				# Do nothing, player already registered
@@ -233,7 +245,7 @@ sub registerPlayer {
 		$prefs->set('player_'.$player->id,$playerConfiguration);
 	}
 
-	$log->debug("Requesting device registration token");
+	$log->debug("Requesting device registration token from: ".$cloudCoreUrl);
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
 			my $http = shift;
@@ -241,10 +253,13 @@ sub registerPlayer {
 			if(defined($jsonResponse->{'result'})) {
 				$log->debug("Successfully got device registration token, now registering device: ".$player->name());
 				Plugins::IckStreamPlugin::PlayerService::registerPlayer($player,$jsonResponse->{'result'});
+			}else {
+				$log->warn("Failed to create device registration token for: ".$player->name());
 			}
+				
 		},
 		sub {
-			$log->warn("Failed to create device registration token");
+			$log->warn("Failed to create device registration token for: "..$player->name());
 		},
 		undef
 		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$controllerAccessToken,to_json({
