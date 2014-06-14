@@ -46,7 +46,7 @@
 	        [% END %]
         [% END %]
         [% IF authenticationName %]
-        	[% IF !daemonSupported %]
+        	[% IF daemonSupported %]
 		       	[% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYERS" desc="PLUGIN_ICKSTREAM_PLAYERS_DESC" %]
 			        [% IF initializedPlayers %]
 						[% FOREACH player IN initializedPlayers %]
