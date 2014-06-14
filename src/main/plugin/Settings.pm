@@ -156,18 +156,27 @@ sub finalizeHandler {
 	
 	my @players = Slim::Player::Client::clients();
 	my @initializedPlayers = ();
+	my @registeredPlayers = ();
 	foreach my $player (@players) {
 		$log->debug("Check if ".$player->name()." is initialized already");
 		if(Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
 			$log->debug($player->name()." is initialized already");
 			push @initializedPlayers, $player;
 		}
-		if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
+		if(Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
+			push @registeredPlayers, $player;
+		}else {
 			$log->debug($player->name()." is not yet registered");
 		}
 	}
+	if(!main::ISWINDOWS) {
+		$params->{'daemonSupported'} = 1;
+	}
 	if(scalar(@initializedPlayers)>0) {
 		$params->{'initializedPlayers'} = \@initializedPlayers;
+	}
+	if(scalar(@registeredPlayers)>0) {
+		$params->{'registeredPlayers'} = \@registeredPlayers;
 	}
 	
 	my $result = $class->SUPER::handler($client, $params);

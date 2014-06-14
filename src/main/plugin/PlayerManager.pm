@@ -128,11 +128,12 @@ sub initializePlayer {
 					sub {
 						$initializedPlayers->{$player->id()} = 1;
 						$log->info("Successfully initialized ".$player->name());
-						updateAddressOrRegisterPlayer($player);
+						updateAddressOrRegisterPlayer($player, 1);
 					},
 					sub {
 						$initializedPlayers->{$player->id()} = undef;
 						$log->warn("Error when initializing ".$player->name());
+						updateAddressOrRegisterPlayer($player, 1);
 					},
 					$params
 				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
@@ -174,6 +175,7 @@ sub uninitializePlayer {
 
 sub updateAddressOrRegisterPlayer {
 	my $player = shift;
+	my $doNotInitialize = shift;
 	
 	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
 
@@ -195,7 +197,7 @@ sub updateAddressOrRegisterPlayer {
 	if(!defined($playerConfiguration->{'accessToken'})) {
 		registerPlayer($cloudCoreUrl, $player);
 	}else {
-		if(!main::ISWINDOWS && !isPlayerInitialized($player)) {
+		if(!main::ISWINDOWS && !isPlayerInitialized($player) && !$doNotInitialize) {
 			initializePlayer($player);
 			return;
 		}
