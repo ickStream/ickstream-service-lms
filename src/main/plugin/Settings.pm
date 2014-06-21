@@ -331,12 +331,8 @@ sub handleAuthenticationFinished {
 			},
 			sub {
 				my $http = shift;
-				my $jsonResponse = from_json($http->content);
-				if(defined($jsonResponse->{'error_description'})) {
-					$log->warn("Failed to authenticate: ".$jsonResponse->{'error'}.": ".$jsonResponse->{'error_description'});
-				}else {
-					$log->warn("Failed to authenticate: ".$jsonResponse->{'error'});
-				}
+				my $error = shift;
+				$log->warn("Authentication error when calling: ".$cloudCoreToken."/ickstream-cloud-core/oauth/token?redirect_uri=".$serverUrl."&code=".$params->{'code'}.": ".$error);
 				my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
 				&{$callback}($client,$params,$output,$httpClient,$response);
 			},
