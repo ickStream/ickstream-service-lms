@@ -120,6 +120,7 @@ sub setPlayerConfiguration {
         	$prefs->set('player_'.$client->id,$playerConfiguration);
         	
         	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		my $httpParams = { timeout => 35 };
 			Slim::Networking::SimpleAsyncHTTP->new(
 				sub {
 					my $http = shift;
@@ -134,7 +135,7 @@ sub setPlayerConfiguration {
 					$prefs->set('player_'.$client->id,$playerConfiguration);
 					sendPlayerStatusChangedNotification($client);
 				},
-				undef
+				$httpParams
 			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
 				'jsonrpc' => '2.0',
 				'id' => 1,
@@ -175,6 +176,7 @@ sub registerPlayer {
 	}
 	
 	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	my $httpParams = { timeout => 35 };
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
 			my $http = shift;
@@ -195,7 +197,7 @@ sub registerPlayer {
 			$log->warn("Failed to register player in cloud: ".$error);
 			sendPlayerStatusChangedNotification($client);
 		},
-		undef
+		$httpParams
 	)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$deviceRegistrationToken,to_json({
 		'jsonrpc' => '2.0',
 		'id' => 1,

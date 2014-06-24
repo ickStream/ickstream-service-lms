@@ -116,6 +116,7 @@ sub handler {
 		$manageAccountUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
 		$params->{'manageAccountUrl'} = $manageAccountUrl;
 		$log->debug("Retrieving information about user account");
+		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				my $http = shift;
@@ -136,7 +137,7 @@ sub handler {
 				my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
 				&{$callback}($client,$params,$result,$httpClient,$response);
 			},
-			undef
+			$httpParams
 		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$prefs->get('accessToken'),to_json({
 			'jsonrpc' => '2.0',
 			'id' => 1,
@@ -286,7 +287,7 @@ sub handleAuthenticationFinished {
 													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
 													&{$callback}($client,$params,$output,$httpClient,$response);
 											},
-											undef
+											$httpParams
 										)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'result'},to_json({
 											'jsonrpc' => '2.0',
 											'id' => 1,
@@ -308,7 +309,7 @@ sub handleAuthenticationFinished {
 									my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
 									&{$callback}($client,$params,$output,$httpClient,$response);
 								},
-								undef
+								$httpParams
 							)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'access_token'},to_json({
 								'jsonrpc' => '2.0',
 								'id' => 1,
@@ -336,7 +337,7 @@ sub handleAuthenticationFinished {
 				my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
 				&{$callback}($client,$params,$output,$httpClient,$response);
 			},
-			$params
+			$httpParams
 		)->get($cloudCoreToken."/ickstream-cloud-core/oauth/token?redirect_uri=".$serverUrl."&code=".$params->{'code'},'Content-Type' => 'application/json');
 	}
 	return undef;

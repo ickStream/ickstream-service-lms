@@ -109,6 +109,7 @@ sub init {
 					}
 				});
 		$log->info("Retrieve content services from cloud");
+		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				my $http = shift;
@@ -165,7 +166,7 @@ sub init {
 				my $error = shift;
 				$log->warn("Failed to retrieve content services from cloud: ".$error);
 			},
-			undef
+			$httpParams
 		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);
 
 	}
@@ -261,6 +262,7 @@ sub topLevel {
 					return;
 				}
 				$log->info("Retrieve content services from cloud using ".$cloudCoreUrl);
+				my $httpParams = { timeout => 35 };
 				Slim::Networking::SimpleAsyncHTTP->new(
 							sub {
 								my $http = shift;
@@ -278,7 +280,7 @@ sub topLevel {
 									type => 'textarea',
 				                }]);
 							},
-							undef
+							$httpParams
 						)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);
 
 		}
@@ -341,6 +343,7 @@ sub getProtocolDescription2 {
 		$log->info("Retrieve protocol description for ".$serviceId);
 		my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
 		$log->info("Retriving data from: $serviceUrl");
+		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 					sub {
 						my $http = shift;
@@ -375,7 +378,7 @@ sub getProtocolDescription2 {
 						$log->warn("Failed to retrieve protocol description for ".$serviceId.": ".$error);
 						&{$errorCb}($serviceId);
 					},
-					undef
+					$httpParams
 				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,to_json({
 					'jsonrpc' => '2.0',
 					'id' => 1,
@@ -408,6 +411,7 @@ sub getPreferredMenus {
 		$log->info("Retrieve preferred menus for ".$serviceId);
 		my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
 		$log->info("Retriving data from: $serviceUrl");
+		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 					sub {
 						my $http = shift;
@@ -427,7 +431,7 @@ sub getPreferredMenus {
 						$log->warn("Failed to retrieve preferred menus for ".$serviceId.": ".$error);
 						&{$errorCb}($serviceId);
 					},
-					undef
+					$httpParams
 				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,to_json({
 					'jsonrpc' => '2.0',
 					'id' => 1,
@@ -674,6 +678,7 @@ sub serviceChildRequestMenu {
 					return;
 				}
 				$log->info("Retriving items from: $serviceUrl");
+				my $httpParams = { timeout => 35 };
 				Slim::Networking::SimpleAsyncHTTP->new(
 							sub {
 								my $http = shift;
@@ -691,7 +696,7 @@ sub serviceChildRequestMenu {
 									type => 'textarea',
 				                }]);
 							},
-							undef
+							$httpParams
 						)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);					
 		},
 		sub {
@@ -884,6 +889,7 @@ sub searchItemMenu {
 					return;
 				}
 				$log->info("Search ".$params->{'type'}." from: $serviceUrl");
+				my $httpParams = { timeout => 35 };
 				Slim::Networking::SimpleAsyncHTTP->new(
 					sub {
 						my $http = shift;
@@ -901,7 +907,7 @@ sub searchItemMenu {
 							type => 'textarea',
 		                }]);
 					},
-					undef
+					$httpParams
 				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);					
 		},
 		sub {

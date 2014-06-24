@@ -204,6 +204,7 @@ sub updateAddressOrRegisterPlayer {
 		my $uuid = $playerConfiguration->{'uuid'};
 		my $serverIP = Slim::Utils::IPDetect::IP();
 		$log->debug("Trying to set player address in cloud to verify if its access token works through: ".$cloudCoreUrl);
+		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				# Do nothing, player already registered
@@ -214,7 +215,7 @@ sub updateAddressOrRegisterPlayer {
 				$log->warn("Failed to update address in cloud, player needs to be re-registered");
 				registerPlayer($cloudCoreUrl, $player);
 			},
-			undef
+			$httpParams
 			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
 				'jsonrpc' => '2.0',
 				'id' => 1,
@@ -248,6 +249,7 @@ sub registerPlayer {
 	}
 
 	$log->debug("Requesting device registration token from: ".$cloudCoreUrl);
+	my $httpParams = { timeout => 35 };
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
 			my $http = shift;
@@ -263,7 +265,7 @@ sub registerPlayer {
 		sub {
 			$log->warn("Failed to create device registration token for: "..$player->name());
 		},
-		undef
+		$httpParams
 		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$controllerAccessToken,to_json({
 			'jsonrpc' => '2.0',
 			'id' => 1,

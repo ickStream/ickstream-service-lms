@@ -250,7 +250,7 @@ sub _getTrack {
 											$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name().": ".$error);
 											_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
 										},
-										undef
+										$httpParams
 									)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
 										'jsonrpc' => '2.0',
 										'id' => 1,
@@ -273,7 +273,7 @@ sub _getTrack {
 							$log->warn("Failed to retrieve metadata for ".$client->name().": ".$error);
 							_gotTrackError("getTrack failed in getItem: ".$trackId, $params);
 						},
-						undef
+						$httpParams
 					)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
 						'jsonrpc' => '2.0',
 						'id' => 1,
@@ -308,7 +308,7 @@ sub _getTrack {
 							$log->warn("Failed to retrieve stream ".$trackId." for ".$client->name().": ".$error);
 							_gotTrackError("getTrack failed in getItemStreamingRef: ".$trackId, $params);
 						},
-						undef
+						$httpParams
 					)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
 						'jsonrpc' => '2.0',
 						'id' => 1,
@@ -554,7 +554,7 @@ sub getMetadataFor {
 						$client->master->pluginData('ickStreamFetchingMeta-'.$trackId => 0);
 						$log->warn("Failed to retrieve metadata for ".$trackId." on ".$client->name().": ".$error);
 					},
-					undef
+					$httpParams
 				)->post($serviceUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
 					'jsonrpc' => '2.0',
 					'id' => 1,
