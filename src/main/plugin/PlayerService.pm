@@ -474,6 +474,12 @@ sub getSeekPosition {
         }
         my $result = {
         };
+        
+		my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+		if(defined($playerStatus->{'playbackQueuePos'})) {
+			$result->{'playbackQueuePos'} = $playerStatus->{'playbackQueuePos'};
+			$result->{'seekPos'} = Slim::Player::Source::songTime($client);
+		}
         # the request was successful and is not async, send results back to caller!
         &{$responseCallback}($result);
 }
@@ -490,6 +496,11 @@ sub setSeekPosition {
         }
         my $result = {
         };
+		my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+		if(defined($playerStatus->{'playbackQueuePos'})) {
+			$result->{'playbackQueuePos'} = $playerStatus->{'playbackQueuePos'};
+			$result->{'seekPos'} = Slim::Player::Source::songTime($client);
+		}
         # the request was successful and is not async, send results back to caller!
         &{$responseCallback}($result);
 }
@@ -552,7 +563,7 @@ sub setTrack {
         	# TODO: if playing
         	my $notification = refreshCurrentPlaylist($client, $playerStatus->{'playbackQueuePos'});
         	if($notification) {
-	        	sendPlayerStatusChangedNotification($client);
+	        	sendPlayerStatusChangedNotification($client, 0);
         	}
         }else {
         	# TODO: return error
@@ -1369,6 +1380,10 @@ sub sendPlaybackQueueChangedNotification {
 
 sub sendPlayerStatusChangedNotification {
 	my $client = shift;
+	my $seekPos = shift;
+	if(!defined($seekPos)) {
+		$seekPos = Slim::Player::Source::songTime($client);
+	}
 	
 	my $notification = {
 		'jsonrpc' => '2.0',
@@ -1388,6 +1403,7 @@ sub sendPlayerStatusChangedNotification {
 	if(defined($playerStatus->{'playbackQueuePos'})) {
        	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
        	
+		$notification->{'params'}->{'seekPos'} = $seekPos;
 		$notification->{'params'}->{'playbackQueuePos'} = $playerStatus->{'playbackQueuePos'};
 		$notification->{'params'}->{'track'} = @{$playbackQueue}[$playerStatus->{'playbackQueuePos'}];
 	}
