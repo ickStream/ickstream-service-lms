@@ -82,21 +82,34 @@ sub binaries {
 sub start {
 	my ($class, $plugin) = @_;
 	$PLUGIN = $plugin;
+	my $archname = $Config::Config{'archname'};
+	my $myarchname = $Config::Config{'myarchname'};
+	my $lddlflags = $Config::Config{'lddlflags'};
     my $daemon = qr/^ickHttpWrapperDaemon$/;
-    if ($Config::Config{'archname'} =~ /x86_64/) {
+    if ($archname =~ /x86_64/) {
         $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
-    }elsif ($Config::Config{'archname'} =~ /darwin/) {
+    }elsif ($archname =~ /darwin/) {
         $daemon = qr/^ickHttpWrapperDaemon\-x86_64$/;
-    }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabihf\-/) {
+    }elsif ($archname =~  /arm\-linux\-gnueabihf\-/) {
         $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabihf$/;
-    }elsif ($Config::Config{'archname'} =~  /arm\-linux\-gnueabi\-/ || $Config::Config{'myarchname'} =~  /armv5tel/) {
+    }elsif ($archname =~  /arm\-linux\-gnueabi\-/ || $myarchname =~  /armv5tel/) {
         $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
-    }elsif ($Config::Config{'archname'} =~  /arm\-linux\-/) {
-        if ($Config::Config{'lddlflags'} =~  /\-mfloat-abi=hard/) {
+    }elsif ($archname =~  /arm\-linux\-/) {
+        if ($lddlflags =~  /\-mfloat-abi=hard/) {
             $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabihf$/;
         }else {
             $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
         }
+    }elsif (Slim::Utils::OSDetect::isLinux()) {
+    	if ($lddlflags =~ /arm\-/ && ($lddlflags =~ /\-linux\-gnueabihf/ || ($lddlflags =~ /\-linux\-gnueabi/ && $lddlflags =~ /\-mfloat-abi=hard/))) {
+            $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabihf$/;
+    	}elsif($lddlflags =~ /arm\-/ && $lddlflags =~  /\-linux\-gnueabi/) {
+            $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
+    	}elsif($archname =~  /armle\-linux/) {
+            $daemon = qr/^ickHttpWrapperDaemon\-arm\-linux\-gnueabi$/;
+    	}else {
+	        $daemon = qr/^ickHttpWrapperDaemon\-x86$/;
+    	}
     }else {
         $daemon = qr/^ickHttpWrapperDaemon\-x86$/;
     }
