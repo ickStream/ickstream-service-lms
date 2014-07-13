@@ -111,3 +111,9 @@ PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS_DESC
 
 PLUGIN_ICKSTREAM_PLAYERS_FORCE_REGISTER
 	EN	Force player registration
+
+PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION
+	EN	SSL peer verification
+
+PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION_DESC
+	EN	Makes it possible to disable SSL peer verification which doesn't work properly in some installations, for example on some Synology NAS boxes. If login does not work you can try disabling SSL peer verification and check if it starts working. Please note that disabling SSL per verification will disable it for complete LMS and not just for ickStream plugin.

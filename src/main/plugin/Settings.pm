@@ -39,6 +39,7 @@ use Crypt::Tea;
 my $log = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
 my $serverPrefs = preferences('server');
+my $peerVerification = undef;
 
 my $KEY = undef;
 
@@ -48,6 +49,19 @@ sub new {
 
 		$KEY = Slim::Utils::PluginManager->dataForPlugin($plugin)->{'id'};
         $class->SUPER::new();
+       	eval { "use IO::Socket::SSL" };
+       	if(!$@ && IO::Socket::SSL->can("set_client_defaults")) {
+       		$peerVerification = 1;
+        	$log->debug("IO::Socket::SSL installed, activating possibility to disable SSL peer verification");
+	        if($prefs->get('disablePeerVerification')) {
+	        	$log->debug("Disabling SSL peer verification\n");
+		        IO::Socket::SSL::set_client_defaults(          
+					'SSL_verify_mode' => 0x0
+				);
+        	}
+        }else {
+        	$log->debug("Recent version of IO::Socket::SSL not installed, skipping possibility to disable SSL peer verification");
+        }
 }
 
 sub name {
@@ -68,7 +82,10 @@ sub handler {
 	if ($serverPrefs->get('authorize')) {
 		$params->{'authorize'} = 1
 	}
-	
+	if($peerVerification) {
+		$params->{'peerVerification'} = 1;
+	}
+
 	my $serverIP = Slim::Utils::IPDetect::IP();
 	my $port = $serverPrefs->get('httpport');
 	my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
@@ -98,6 +115,22 @@ sub handler {
 			$log->info('Disabling Squeezebox Touch/Radio players');
 			$params->{'disabledSqueezePlayPlayers'} = 1;
 		}	
+	}
+	if ($params->{'saveSettings'} && $peerVerification) {
+		eval { "use IO::Socket::SSL" };
+		if($params->{'pref_disablePeerVerification'}) {
+			$prefs->set('disablePeerVerification',1);
+        	$log->debug("Disabling SSL peer verification\n");
+	        IO::Socket::SSL::set_client_defaults(          
+				'SSL_verify_mode' => 0x0   
+			);
+		}else {
+			$prefs->remove('disablePeerVerification',1);
+        	$log->debug("Enabling SSL peer verification\n");
+	        IO::Socket::SSL::set_client_defaults(          
+				'SSL_verify_mode' => 0x1   
+			);
+		}
 	}
 	
 	if ($params->{'logout'}) {

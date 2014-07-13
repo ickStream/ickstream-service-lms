@@ -22,6 +22,15 @@
         [% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT" desc="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT_DESC" %]
                 <input type="text" class="stdedit" name="pref_daemonPort" id="daemonPort" value="[% prefs.pref_daemonPort %]" size="5">
         [% END %]
+        [% IF peerVerification %]
+       	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION" desc="PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION_DESC" %]
+                <select name="pref_disablePeerVerification">
+                        <option value="0" [% IF NOT prefs.disablePeerVerification %]selected[% END %]>[% "ENABLED" | string %]</option>
+                        <option value="1" [% IF prefs.disablePeerVerification %]selected[% END %]>[% "DISABLED" | string %]</option>
+                </select>
+        [% END %]
+
+        [% END %]
         [% WRAPPER setting title="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS" desc="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS_DESC" %]
                 <select name="pref_squeezePlayPlayersEnabled">
                         <option value="1" [% IF prefs.squeezePlayPlayersEnabled %]selected[% END %]>[% "ENABLED" | string %]</option>
