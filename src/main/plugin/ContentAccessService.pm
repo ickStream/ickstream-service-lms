@@ -59,7 +59,6 @@ my %methods = (
 		'getProtocolDescription' => \&getProtocolDescription,
 		'getProtocolDescription2' => \&getProtocolDescription2,
 		'getPreferredMenus' => \&getPreferredMenus,
-        'findTopLevelItems'        => \&findTopLevelItems,
         'findItems'        => \&findItems,
         'getNextDynamicPlaylistTracks'        => \&getNextDynamicPlaylistTracks,
         'getItem'	=> \&getItem,
@@ -639,30 +638,6 @@ sub getManagementProtocolDescription {
 
 }
 
-sub getTopLevelItems {
-	my $serverPrefix = getServerId();
-	my @topLevelItems = (
-		{
-			'id' => "$serverPrefix:myMusic",
-			'text' => 'My Library',
-			'type' => 'menu'
-		},
-		{
-			'id' => "$serverPrefix:myMusic/artists",
-			'text' => 'Artists',
-			'type' => 'menu',
-			'parentNode' => "$serverPrefix:myMusic"
-		},
-		{
-			'id' => "$serverPrefix:myMusic/albums",
-			'text' => 'Albums',
-			'type' => 'menu',
-			'parentNode' => "$serverPrefix:myMusic"
-		}
-	);
-	return \@topLevelItems;
-}
-
 sub getLastScannedTime {
 	my $lastScanTime = Slim::Music::Import->lastScanTime;
 	if(!$lastScanTime) {
@@ -815,41 +790,6 @@ sub getProtocolVersions {
 		'minVersion' => '1.0',
 		'maxVersion' => '2.0'
 	};
-	# the request was successful and is not async, send results back to caller!
-	Plugins::IckStreamPlugin::JsonHandler::requestWrite($result, $context->{'httpClient'}, $context);
-}
-
-sub findTopLevelItems {
-	my $context = shift;
-
-    # get the JSON-RPC params
-    my $reqParams = $context->{'procedure'}->{'params'};
-
-	if ( $log->is_debug ) {
-	        $log->debug( "findTopLevelItems(" . Data::Dump::dump($reqParams) . ")" );
-	}
-
-	my $count = $reqParams->{'count'} if exists($reqParams->{'count'});
-	my $offset = $reqParams->{'offset'} || 0;
-	
-	my @items = ();
-	
-	my $i = 0;
-	my $topLevelItems = getTopLevelItems();
-	for my $item (@$topLevelItems) {
-		if($i>=$offset && (!defined($count) || scalar(@items)<$count)) {
-			push @items,$item;
-		}
-		$i++;
-	}
-	
-	my $result = {
-		'offset' => $offset,
-		'count' => scalar(@items),
-		'countAll' => scalar(@$topLevelItems),
-		'items' => \@items
-	};
-
 	# the request was successful and is not async, send results back to caller!
 	Plugins::IckStreamPlugin::JsonHandler::requestWrite($result, $context->{'httpClient'}, $context);
 }
