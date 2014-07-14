@@ -49,7 +49,7 @@ sub new {
 
 		$KEY = Slim::Utils::PluginManager->dataForPlugin($plugin)->{'id'};
         $class->SUPER::new();
-       	eval { "use IO::Socket::SSL" };
+       	eval "use IO::Socket::SSL";
        	if(!$@ && IO::Socket::SSL->can("set_client_defaults")) {
        		$peerVerification = 1;
         	$log->debug("IO::Socket::SSL installed, activating possibility to disable SSL peer verification");
@@ -73,7 +73,7 @@ sub page {
 }
 
 sub prefs {
-	return ($prefs, 'orderAlbumsForArtist', 'daemonPort', 'squeezePlayPlayersEnabled');
+	return ($prefs, 'orderAlbumsForArtist', 'daemonPort', 'squeezePlayPlayersEnabled', 'disablePeerVerification');
 }
 
 sub handler {
@@ -117,15 +117,13 @@ sub handler {
 		}	
 	}
 	if ($params->{'saveSettings'} && $peerVerification) {
-		eval { "use IO::Socket::SSL" };
+       	eval "use IO::Socket::SSL";
 		if($params->{'pref_disablePeerVerification'}) {
-			$prefs->set('disablePeerVerification',1);
         	$log->debug("Disabling SSL peer verification\n");
 	        IO::Socket::SSL::set_client_defaults(          
 				'SSL_verify_mode' => 0x0   
 			);
 		}else {
-			$prefs->remove('disablePeerVerification',1);
         	$log->debug("Enabling SSL peer verification\n");
 	        IO::Socket::SSL::set_client_defaults(          
 				'SSL_verify_mode' => 0x1   
