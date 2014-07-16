@@ -913,7 +913,7 @@ sub addTracks {
        		Plugins::IckStreamPlugin::PlaybackQueueManager::setOriginalPlaybackQueue($client, $originalPlaybackQueue);
         	
         	if(defined($playerStatus->{'playbackQueuePos'}) && $playerStatus->{'playbackQueuePos'}>=$reqParams->{'playbackQueuePos'}) {
-        		$playerStatus->{'playbackQueuePos'} += scale(@{$reqParams->{'items'}});
+        		$playerStatus->{'playbackQueuePos'} += scalar(@{$reqParams->{'items'}});
         	}
         }else {
         	if($playerStatus->{'playbackQueueMode'} eq 'QUEUE_SHUFFLE' || $playerStatus->{'playbackQueueMode'} eq 'QUEUE_REPEAT_SHUFFLE') {
@@ -1111,6 +1111,7 @@ sub moveTracks {
 			if(($wantedPlaybackQueuePos <= $modifiedPlaybackQueuePos && $itemReference->{'playbackQueuePos'} < $modifiedPlaybackQueuePos) ||
 				$wantedPlaybackQueuePos > $modifiedPlaybackQueuePos && $itemReference->{'playbackQueuePos'} > $modifiedPlaybackQueuePos) {
 					
+				$log->debug("Move that doesn't affect playback queue position: ".$itemReference->{'playbackQueuePos'});
 				my $item = splice @{$modifiedPlaybackQueue},$itemReference->{'playbackQueuePos'},1;
 				if($item->{'id'} ne $itemReference->{'id'}) {
 					# TODO: return error
@@ -1131,16 +1132,18 @@ sub moveTracks {
 				
 			# Move that increase playback queue position
 			}elsif($wantedPlaybackQueuePos <= $modifiedPlaybackQueuePos && $itemReference->{'playbackQueuePos'} > $modifiedPlaybackQueuePos) {
+				$log->debug("Move that increase playback queue position: ".$itemReference->{'playbackQueuePos'});
 				my $item = splice @{$modifiedPlaybackQueue},$itemReference->{'playbackQueuePos'},1;
 				if($item->{'id'} ne $itemReference->{'id'}) {
 					# TODO: return error
 				}
-				push @{$modifiedPlaybackQueue},$item;
+				splice @{$modifiedPlaybackQueue},$wantedPlaybackQueuePos,0,$item;
 				$modifiedPlaybackQueuePos++;
 				$wantedPlaybackQueuePos++;
 			
 			# Move that decrease playback queue position
 			}elsif($wantedPlaybackQueuePos > $modifiedPlaybackQueuePos && $itemReference->{'playbackQueuePos'} < $modifiedPlaybackQueuePos) {
+				$log->debug("Move that decrease playback queue position: ".$itemReference->{'playbackQueuePos'});
 				my $item = splice @{$modifiedPlaybackQueue},$itemReference->{'playbackQueuePos'},1;
 				if($item->{'id'} ne $itemReference->{'id'}) {
 					# TODO: return error
@@ -1150,7 +1153,7 @@ sub moveTracks {
 					$offset = -1;
 				}
 				if(($wantedPlaybackQueuePos + $offset) < scalar(@{$modifiedPlaybackQueue})) {
-					@{$modifiedPlaybackQueue} = splice @{$modifiedPlaybackQueue},$wantedPlaybackQueuePos+$offset,0,$item;
+					splice @{$modifiedPlaybackQueue},$wantedPlaybackQueuePos+$offset,0,$item;
 				}else {
 					push @{$modifiedPlaybackQueue},$item;
 				}
@@ -1158,6 +1161,7 @@ sub moveTracks {
 				
 			# Move of currently playing track
 			}elsif($itemReference->{'playbackQueuePos'} == $modifiedPlaybackQueuePos) {
+				$log->debug("Move of currently playing track: ".$itemReference->{'playbackQueuePos'});
 				my $item = splice @{$modifiedPlaybackQueue},$itemReference->{'playbackQueuePos'},1;
 				if($item->{'id'} ne $itemReference->{'id'}) {
 					# TODO: return error
@@ -1181,6 +1185,7 @@ sub moveTracks {
 			}
 		
 		}
+		#$log->debug("New playback queue is: ".Dumper($modifiedPlaybackQueue));
 		
 		if($playerStatus->{'playbackQueueMode'} ne 'QUEUE_SHUFFLE' || $playerStatus->{'playbackQueueMode'} ne 'QUEUE_REPEAT_SHUFFLE') {
 			my @empty = ();
@@ -1199,6 +1204,7 @@ sub moveTracks {
 			$prefs->set('playerstatus_'.$client->id,$playerStatus);
 			$sendPlayerStatusChanged = 1;
 		}
+		$log->debug("New playback queue pos is: ".$playerStatus->{'playbackQueuePos'});
 		refreshCurrentPlaylist($client);
 
 		sendPlaybackQueueChangedNotification($client);
