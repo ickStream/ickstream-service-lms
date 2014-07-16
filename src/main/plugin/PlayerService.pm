@@ -1374,7 +1374,7 @@ sub sendPlaybackQueueChangedNotification {
 	$notification->{'params'}->{'countAll'} = scalar(@{$playbackQueue});
 	
 	if(Plugins::IckStreamPlugin::PlaybackQueueManager::getLastChanged($client)) {
-		$notification->{'lastChanged'} = Plugins::IckStreamPlugin::PlaybackQueueManager::getLastChanged($client);
+		$notification->{'params'}->{'lastChanged'} = Plugins::IckStreamPlugin::PlaybackQueueManager::getLastChanged($client);
 	}
 	
     if($log->is_debug) { my $val = dclone($notification);$log->debug("notification: ".Data::Dump::dump($val)); }
