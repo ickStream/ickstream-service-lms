@@ -35,10 +35,17 @@ use JSON::XS::VersionOneAndTwo;
 
 my $log   = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
+my $serverPrefs = preferences('server');
+my $KEY = undef;
 
 my $localRequestedServices = {};
 my $localServiceRequestIds = {};
 my $localServices = {};
+
+sub init {
+	my $plugin = shift;
+	$KEY = Slim::Utils::PluginManager->dataForPlugin($plugin)->{'id'};
+}
 
 sub _setService {
 	my $serviceId = shift;
@@ -76,7 +83,23 @@ sub resolveServiceUrl {
 			#$log->debug("Replacing: $serviceUrl based on $serviceId prefix: ".$replacementUrl);
 			$serviceUrl =~ s/^service:\/\/[^\/]*\//$replacementUrl\//;
 			#$log->debug("Replaced with: $serviceUrl");
+		}elsif($serviceId eq $prefs->get('uuid')) {
+			# let's increase reliability for local content service
+			$log->debug("Unable to resolve using getServiceInformation, resolving locally");
+			my $serverAddress = Slim::Utils::Network::serverAddr();
+			($serverAddress) = split /:/, $serverAddress;
+			
+			if ($serverPrefs->get('authorize')) {
+				my $password = Crypt::Tea::decrypt($prefs->get('password'),$KEY);
+				$serverAddress = $serverPrefs->get('username').":".$password."@".$serverAddress;
+			}
+		
+			$serverAddress .= ":" . $serverPrefs->get('httpport');
+			my $replacementUrl = 'http://'.$serverAddress;
+			$serviceUrl =~ s/^service:\/\/[^\/]*\//$replacementUrl\//;
+			
 		}
+
 	}
 	return $serviceUrl;
 }

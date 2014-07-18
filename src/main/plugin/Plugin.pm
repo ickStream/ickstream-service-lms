@@ -97,6 +97,7 @@ sub initPlugin {
 	
 	Plugins::IckStreamPlugin::Settings->new($class);
 	Plugins::IckStreamPlugin::ContentAccessService::init($class);
+	Plugins::IckStreamPlugin::LocalServiceManager::init($class);
 	Plugins::IckStreamPlugin::BrowseManager::init();
 	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServers,$class);
 	Slim::Control::Request::addDispatch(['ickstream','player','?'], [1, 1, 0, \&Plugins::IckStreamPlugin::PlayerManager::playerEnabledQuery]);
