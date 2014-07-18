@@ -41,6 +41,8 @@ use HTTP::Status qw(RC_MOVED_TEMPORARILY RC_NOT_FOUND);
 use Slim::Utils::Compress;
 use POSIX qw(floor);
 use Crypt::Tea;
+use Slim::Utils::Strings qw(string);
+
 
 use Plugins::IckStreamPlugin::JsonHandler;
 
@@ -264,6 +266,36 @@ sub getPreferredMenus {
 	};
 	push @contexts,$artistsMenu;
 	
+	my $composersMenu = {
+		'type' => 'browse',
+		'text' => 'Composers',
+		'childRequest' => {
+			'request' => 'myMusic:artistsWithRoleComposer',
+			'childRequest' => {
+				'request' => 'myMusic:albumsByArtistWithRoleComposer',
+				'childRequest' => {
+					'request' => 'myMusic:tracksOnAlbumByArtistWithRoleComposer'
+				}
+			}
+		}
+	};
+	push @contexts,$composersMenu;
+
+	my $conductorsMenu = {
+		'type' => 'browse',
+		'text' => 'Conductors',
+		'childRequest' => {
+			'request' => 'myMusic:artistsWithRoleConductor',
+			'childRequest' => {
+				'request' => 'myMusic:albumsByArtistWithRoleConductor',
+				'childRequest' => {
+					'request' => 'myMusic:tracksOnAlbumByArtistWithRoleConductor'
+				}
+			}
+		}
+	};
+	push @contexts,$conductorsMenu;
+
 	my $albumsMenu = {
 		'type' => 'browse',
 		'text' => 'Albums',
@@ -306,12 +338,41 @@ sub getPreferredMenus {
 	};
 	push @contexts,$playlistsMenu;
 
+	my $decadesMenu = {
+		'type' => 'browse',
+		'text' => 'Decades',
+		'childRequest' => {
+			'request' => 'myMusic:decades',
+			'childRequest' => {
+				'request' => 'myMusic:albumsFromDecade',
+				'childRequest' => {
+					'request' => 'myMusic:tracksOnAlbum'
+				}
+			}
+		}
+	};
+	push @contexts,$decadesMenu;
+
+	my $yearsMenu = {
+		'type' => 'browse',
+		'text' => 'Years',
+		'childRequest' => {
+			'request' => 'myMusic:years',
+			'childRequest' => {
+				'request' => 'myMusic:albumsFromYear',
+				'childRequest' => {
+					'request' => 'myMusic:tracksOnAlbum'
+				}
+			}
+		}
+	};
+	push @contexts,$yearsMenu;
 
 	my $folderMenu = {
 		'type' => 'browse',
 		'text' => 'Music folders',
 		'childRequest' => {
-			'request' => 'myMusic:menus',
+			'request' => 'myMusic:folders',
 			'childRequest' => {
 				'request' => 'myMusic:childItemsInMenu'
 			}
@@ -412,6 +473,20 @@ sub getProtocolDescription2 {
 						'parameters' => 
 							['contextId','type']
 					},
+					'myMusic:artistsWithRoleComposer' => {
+						'values' => {
+							'roleId' => 'composer'
+						},
+						'parameters' => 
+							['contextId','type','roleId']
+					},
+					'myMusic:artistsWithRoleConductor' => {
+						'values' => {
+							'roleId' => 'conductor'
+						},
+						'parameters' => 
+							['contextId','type','roleId']
+					},
 					'myMusic:artistsInCategory' => {
 						'parameters' => 
 							['contextId','type','categoryId']
@@ -426,9 +501,31 @@ sub getProtocolDescription2 {
 						'parameters' => 
 							['contextId','type','artistId']
 					},
+					'myMusic:albumsByArtistWithRoleComposer' => {
+						'values' => {
+							'roleId' => 'composer'
+						},
+						'parameters' => 
+							['contextId','type','artistId','roleId']
+					},
+					'myMusic:albumsByArtistWithRoleConductor' => {
+						'values' => {
+							'roleId' => 'conductor'
+						},
+						'parameters' => 
+							['contextId','type','artistId','roleId']
+					},
 					'myMusic:albumsInCategory' => {
 						'parameters' => 
 							['contextId','type','categoryId'],
+					},
+					'myMusic:albumsFromYear' => {
+						'parameters' => 
+							['contextId','type','yearId'],
+					},
+					'myMusic:albumsFromDecade' => {
+						'parameters' => 
+							['contextId','type','decadeId'],
 					},
 					'myMusic:albumsInCategoryByArtist' => {
 						'parameters' => 
@@ -455,6 +552,20 @@ sub getProtocolDescription2 {
 						'parameters' => 
 							['contextId','type','albumId']
 					},
+					'myMusic:tracksOnAlbumByArtistWithRoleComposer' => {
+						'values' => {
+							'roleId' => 'composer'
+						},
+						'parameters' => 
+							['contextId','type','albumId','artistId','roleId']
+					},
+					'myMusic:tracksOnAlbumByArtistWithRoleConductor' => {
+						'values' => {
+							'roleId' => 'conductor'
+						},
+						'parameters' => 
+							['contextId','type','albumId','artistId','roleId']
+					},
 					'myMusic:tracksOnAlbumByArtist' => {
 						'parameters' => 
 							['contextId','type','artistId','albumId']
@@ -466,8 +577,20 @@ sub getProtocolDescription2 {
 							['contextId','type']
 					}
 				},
-				'menu' => {
-					'myMusic:menus' => {
+				'folder' => {
+					'myMusic:folders' => {
+						'parameters' => 
+							['contextId','type']
+					}
+				},
+				'year' => {
+					'myMusic:years' => {
+						'parameters' => 
+							['contextId','type']
+					}
+				},
+				'decade' => {
+					'myMusic:decades' => {
 						'parameters' => 
 							['contextId','type']
 					}
@@ -475,7 +598,7 @@ sub getProtocolDescription2 {
 				'none' => {
 					'myMusic:childItemsInMenu' => {
 						'parameters' => 
-							['contextId','menuId']
+							['contextId','folderId']
 					}
 				}
 			}
@@ -488,47 +611,18 @@ sub getProtocolDescription2 {
 			'name' => 'All Music',
 			'supportedRequests' => {
 				'artist' => {
-					'allMusic:artists' => {
-						'parameters' => 
-							['contextId','type']
-					},
 					'allMusic:searchForArtists' => {
 						'parameters' => 
 							['contextId','type','search']
-					},
-					'allMusic:artistsInCategory' => {
-						'parameters' => 
-							['contextId','type','categoryId']
 					}
 				},
 				'album' => {
-					'allMusic:albums' => {
-						'parameters' => 
-							['contextId','type']
-					},
 					'allMusic:searchForAlbums' => {
 						'parameters' => 
 							['contextId','type','search']
-					},
-					'allMusic:albumsByArtist' => {
-						'parameters' => 
-							['contextId','type','artistId']
-					},
-					'allMusic:albumsInCategory' => {
-						'parameters' => 
-							['contextId','type','categoryId'],
-					},
-					'allMusic:albumsInCategoryByArtist' => {
-						'parameters' => 
-							['contextId','type','categoryId','artistId']
 					}
-						
 				},
 				'playlist' => {
-					'allMusic:playlists' => {
-						'parameters' => 
-							['contextId','type']
-					},
 					'allMusic:searchForPlaylists' => {
 						'parameters' => 
 							['contextId','type','search']
@@ -538,30 +632,6 @@ sub getProtocolDescription2 {
 					'allMusic:searchForTrack' => {
 						'parameters' => 
 							['contextId','type','search']
-					},
-					'allMusic:tracksByArtist' => {
-						'parameters' => 
-							['contextId','type','artistId']
-					},
-					'allMusic:tracksInPlaylist' => {
-						'parameters' => 
-							['contextId','type','playlistId']
-					},
-					'allMusic:tracksInCategory' => {
-						'parameters' => 
-							['contextId','type','cateogryId']
-					},
-					'allMusic:tracksInCategoryByArtist' => {
-						'parameters' => 
-							['contextId','type','cateogryId','artistId']
-					},
-					'allMusic:tracksOnAlbum' => {
-						'parameters' => 
-							['contextId','type','albumId']
-					},
-					'allMusic:tracksOnAlbumByArtist' => {
-						'parameters' => 
-							['contextId','type','artistId','albumId']
 					}
 				}
 			}
@@ -720,7 +790,11 @@ sub findItems {
 				$items = findTracks($reqParams,$offset,$count);
 			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'category') {
 				$items = findCategories($reqParams,$offset,$count);
-			} elsif(exists($reqParams->{'contextId'}) && ($reqParams->{'contextId'} eq 'myMusicFolder' || $reqParams->{'contextId'} eq 'myMusic') && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu')) {
+			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'decade') {
+				$items = findDecades($reqParams,$offset,$count);
+			} elsif(exists($reqParams->{'type'}) && $reqParams->{'type'} eq 'year') {
+				$items = findYears($reqParams,$offset,$count);
+			} elsif(exists($reqParams->{'contextId'}) && ($reqParams->{'contextId'} eq 'myMusicFolder' || $reqParams->{'contextId'} eq 'myMusic') && (!exists($reqParams->{'type'}) || $reqParams->{'type'} eq 'menu' || $reqParams->{'type'} eq 'folder')) {
 				$items = findFolders($reqParams,$offset,$count);
 			}
 		}
@@ -899,6 +973,133 @@ sub processCategoryResult {
 	return \@items;		
 }
 
+
+sub findYears {
+	my $reqParams = shift;
+	my $offset = shift;
+	my $count = shift;
+	
+	my @items = ();
+	
+	my @whereDirectives = ();
+	my @whereDirectiveValues = ();
+	my @whereSearchDirectives = ();
+	my @whereSearchDirectiveValues = ();
+	my $sql = 'SELECT years.id FROM years ';
+	my $order_by = undef;
+	$order_by = "years.id desc";
+
+	$sql .= "GROUP BY years.id ORDER BY $order_by";
+	if(defined($count)) {
+		$sql .= " LIMIT $offset, $count";
+	}
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$log->debug("Executing $sql");
+	$log->debug("Using values: ".join(',',@whereDirectiveValues));
+	$sth->execute(@whereDirectiveValues);
+
+	return processYearResult($sth,$order_by);
+}
+
+sub processYearResult {
+	my $sth = shift;
+	my $order_by = shift;
+		
+	my $serverPrefix = getServerId();
+
+	my @items = ();
+	
+	my $yearId;
+	my $yearName;
+	
+	$sth->bind_col(1,\$yearId);
+	
+	while ($sth->fetch) {
+		if($yearId == 0) {
+			$yearName = string('UNK');
+		}else {
+			$yearName = $yearId;
+		}
+		my $item = {
+			'id' => "$serverPrefix:year:$yearId",
+			'text' => $yearName,
+			'type' => "year",
+			'itemAttributes' => {
+				'id' => "$serverPrefix:year:$yearId",
+				'name' => $yearName
+			}
+		};
+		
+		push @items,$item;
+	}
+	$sth->finish();
+	return \@items;		
+}
+
+sub findDecades {
+	my $reqParams = shift;
+	my $offset = shift;
+	my $count = shift;
+	
+	my @items = ();
+	
+	my @whereDirectives = ();
+	my @whereDirectiveValues = ();
+	my @whereSearchDirectives = ();
+	my @whereSearchDirectiveValues = ();
+	my $sql = 'SELECT floor(years.id/10)*10 FROM years ';
+	my $order_by = undef;
+	$order_by = "years.id desc";
+
+	$sql .= "GROUP BY floor(years.id/10)*10 ORDER BY $order_by";
+	if(defined($count)) {
+		$sql .= " LIMIT $offset, $count";
+	}
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached($sql);
+	$log->debug("Executing $sql");
+	$log->debug("Using values: ".join(',',@whereDirectiveValues));
+	$sth->execute(@whereDirectiveValues);
+
+	return processDecadeResult($sth,$order_by);
+}
+
+sub processDecadeResult {
+	my $sth = shift;
+	my $order_by = shift;
+		
+	my $serverPrefix = getServerId();
+
+	my @items = ();
+	
+	my $decadeId;
+	my $decadeName;
+	
+	$sth->bind_col(1,\$decadeId);
+	
+	while ($sth->fetch) {
+		if($decadeId == 0) {
+			$decadeName = string('UNK');
+		}else {
+			$decadeName = $decadeId."-".($decadeId+9);
+		}
+		my $item = {
+			'id' => "$serverPrefix:decade:$decadeId",
+			'text' => $decadeName,
+			'type' => "decade",
+			'itemAttributes' => {
+				'id' => "$serverPrefix:decade:$decadeId",
+				'name' => $decadeName
+			}
+		};
+		
+		push @items,$item;
+	}
+	$sth->finish();
+	return \@items;		
+}
+
 sub getAlbum {
 	my $albumId = shift;
 
@@ -954,17 +1155,29 @@ sub findAlbums {
 
 		$sql .= 'JOIN contributor_album ON contributor_album.album = albums.id ';
 		
-		$sql .= ' AND contributor_album.role IN (?, ?, ?';
-		push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('ARTIST');
-		push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('TRACKARTIST');
-		push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('ALBUMARTIST');
-		foreach (Slim::Schema::Contributor->contributorRoles) {
-			if ($serverPrefs->get(lc($_) . 'InArtists')) {
-				$sql .= ', ?';
-				push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole($_);
+		if(exists($reqParams->{'roleId'})) {
+			$sql .= ' AND contributor_album.role=? ';
+			my $role = Slim::Schema::Contributor->typeToRole(uc($reqParams->{'roleId'}));
+			if(defined($role)) {
+				$sql .= ' AND contributor_album.role IN ('.$role.') ';
+				push @whereDirectiveValues,$role;
+			}else {
+				# Make sure we don't get any matches for unknown roles
+				$sql .= ' AND contributor_album.role IN (99) ';
 			}
+		}else {
+			$sql .= ' AND contributor_album.role IN (?, ?, ?';
+			push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('ARTIST');
+			push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('TRACKARTIST');
+			push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole('ALBUMARTIST');
+			foreach (Slim::Schema::Contributor->contributorRoles) {
+				if ($serverPrefs->get(lc($_) . 'InArtists')) {
+					$sql .= ', ?';
+					push @whereDirectiveValues, Slim::Schema::Contributor->typeToRole($_);
+				}
+			}
+			$sql .= ') ';
 		}
-		$sql .= ') ';
 
 		push @whereDirectives, 'contributor_album.contributor=?';
 		push @whereDirectiveValues, getInternalId($reqParams->{'artistId'});
@@ -985,6 +1198,15 @@ sub findAlbums {
 
 		push @whereDirectives, 'genres.name=? ';
 		push @whereDirectiveValues, getInternalId($reqParams->{'categoryId'});
+	}
+	if(exists($reqParams->{'yearId'})) {
+		push @whereDirectives, 'albums.year=? ';
+		push @whereDirectiveValues, getInternalId($reqParams->{'yearId'});
+	}elsif(exists($reqParams->{'decadeId'})) {
+		push @whereDirectives, 'albums.year>=? ';
+		push @whereDirectiveValues, getInternalId($reqParams->{'decadeId'});
+		push @whereDirectives, 'albums.year<=? ';
+		push @whereDirectiveValues, getInternalId($reqParams->{'decadeId'})+9;
 	}
 	
 	if(exists($reqParams->{'search'})) {
@@ -1149,18 +1371,29 @@ sub findArtists {
 	my @whereDirectiveValues = ();
 	my $sql = 'SELECT contributors.id,contributors.name,contributors.namesort FROM contributors JOIN contributor_album ON contributors.id=contributor_album.contributor ';
 	if(!exists($reqParams->{'search'})) {
-		$sql .= ' AND contributor_album.role IN (';
-		my $roles = Slim::Schema->artistOnlyRoles || [];
-		my $first = 1;
-		foreach (@{$roles}) {
-			if(!$first) {
-				$sql .= ', ';
+		if(exists($reqParams->{'roleId'})) {
+			my $role = Slim::Schema::Contributor->typeToRole(uc($reqParams->{'roleId'}));
+			if(defined($role)) {
+				$sql .= ' AND contributor_album.role=? ';
+				push @whereDirectiveValues,$role;
+			}else {
+				# Unknown roles shouldn't give any matches
+				$sql .= ' AND contributor_album.role IN (99) ';
 			}
-			$sql .= '?';
-			push @whereDirectiveValues, $_;
-			$first = 0;
+		}else {
+			$sql .= ' AND contributor_album.role IN (';
+			my $roles = Slim::Schema->artistOnlyRoles || [];
+			my $first = 1;
+			foreach (@{$roles}) {
+				if(!$first) {
+					$sql .= ', ';
+				}
+				$sql .= '?';
+				push @whereDirectiveValues, $_;
+				$first = 0;
+			}
+			$sql .= ') ';
 		}
-		$sql .= ') ';
 		
 		if($va_pref) {
 			$sql .= 'JOIN albums ON contributor_album.album = albums.id ';
@@ -1463,6 +1696,16 @@ sub findTracks {
 		$sql .= 'JOIN contributor_track ON contributor_track.track = tracks.id ';
 		push @whereDirectives, 'contributor_track.contributor=?';
 		push @whereDirectiveValues, getInternalId($reqParams->{'artistId'});
+		if(exists($reqParams->{'roleId'})) {
+			push @whereDirectives, 'contributor_track.role=?';
+			my $role = Slim::Schema::Contributor->typeToRole(uc($reqParams->{'roleId'}));
+			if(defined($role)) {
+				push @whereDirectiveValues,$role;
+			}else {
+				# Make sure we don't get any matches for unknown roles
+				push @whereDirectiveValues,99;
+			}
+		}
 	}
 	if(exists($reqParams->{'categoryId'})) {
 		$sql .= 'JOIN genre_track on genre_track.track = tracks.id ';
@@ -1692,8 +1935,8 @@ sub findFolders {
 	my $dbh = Slim::Schema->dbh;
 	
 	my $folderId = undef;
-	if(exists($reqParams->{'menuId'})) {
-		my $internalId = getInternalId($reqParams->{'menuId'});
+	if(exists($reqParams->{'folderId'})) {
+		my $internalId = getInternalId($reqParams->{'folderId'});
 		my $sql = "SELECT id from tracks where urlmd5=?";
 		my $sth = $dbh->prepare_cached($sql);
 		$sth->execute(($internalId));
@@ -1781,7 +2024,7 @@ sub processFolderResult {
 			'id' => "$serverPrefix:folder:$trackMd5Url",
 			'text' => $trackTitle,
 			'sortText' => $trackSortTitle,
-			'type' => "menu",
+			'type' => "folder",
 			'preferredChildRequest' => 'myMusic:childItemsInMenu',
 			'itemAttributes' => {
 				'id' => "$serverPrefix:folder:$trackMd5Url",
