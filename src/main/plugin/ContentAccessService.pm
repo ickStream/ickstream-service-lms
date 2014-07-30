@@ -254,6 +254,7 @@ sub getPreferredMenus {
 	my $artistsMenu = {
 		'type' => 'browse',
 		'text' => 'Artists',
+		'imageType' => 'artists',
 		'childRequest' => {
 			'request' => 'myMusic:artists',
 			'childRequest' => {
@@ -269,6 +270,7 @@ sub getPreferredMenus {
 	my $composersMenu = {
 		'type' => 'browse',
 		'text' => 'Composers',
+		'imageType' => 'composers',
 		'childRequest' => {
 			'request' => 'myMusic:artistsWithRoleComposer',
 			'childRequest' => {
@@ -284,6 +286,7 @@ sub getPreferredMenus {
 	my $conductorsMenu = {
 		'type' => 'browse',
 		'text' => 'Conductors',
+		'imageType' => 'conductors',
 		'childRequest' => {
 			'request' => 'myMusic:artistsWithRoleConductor',
 			'childRequest' => {
@@ -299,6 +302,7 @@ sub getPreferredMenus {
 	my $albumsMenu = {
 		'type' => 'browse',
 		'text' => 'Albums',
+		'imageType' => 'albums',
 		'childRequest' => {
 			'request' => 'myMusic:albums',
 			'childRequest' => {
@@ -311,6 +315,7 @@ sub getPreferredMenus {
 	my $genresMenu = {
 		'type' => 'browse',
 		'text' => 'Genres',
+		'imageType' => 'genres',
 		'childRequest' => {
 			'request' => 'myMusic:categories',
 			'childRequest' => {
@@ -329,6 +334,7 @@ sub getPreferredMenus {
 	my $playlistsMenu = {
 		'type' => 'browse',
 		'text' => 'Playlists',
+		'imageType' => 'playlists',
 		'childRequest' => {
 			'request' => 'myMusic:playlists',
 			'childRequest' => {
@@ -341,6 +347,7 @@ sub getPreferredMenus {
 	my $decadesMenu = {
 		'type' => 'browse',
 		'text' => 'Decades',
+		'imageType' => 'decades',
 		'childRequest' => {
 			'request' => 'myMusic:decades',
 			'childRequest' => {
@@ -356,6 +363,7 @@ sub getPreferredMenus {
 	my $yearsMenu = {
 		'type' => 'browse',
 		'text' => 'Years',
+		'imageType' => 'years',
 		'childRequest' => {
 			'request' => 'myMusic:years',
 			'childRequest' => {
@@ -371,6 +379,7 @@ sub getPreferredMenus {
 	my $folderMenu = {
 		'type' => 'browse',
 		'text' => 'Music folders',
+		'imageType' => 'folders',
 		'childRequest' => {
 			'request' => 'myMusic:folders',
 			'childRequest' => {
@@ -382,10 +391,12 @@ sub getPreferredMenus {
 	my $searchMenu = {
 		'type' => 'search',
 		'text' => 'Search',
+		'imageType' => 'search',
 		'childItems' => [
 			{
 				'type' => 'search',
 				'text' => 'Artists',
+				'imageType' => 'artists',
 				'childRequest' => {
 					'request' => 'allMusic:searchForArtists',
 					'childRequest' => {
@@ -399,6 +410,7 @@ sub getPreferredMenus {
 			{
 				'type' => 'search',
 				'text' => 'Albums',
+				'imageType' => 'albums',
 				'childRequest' => {
 					'request' => 'allMusic:searchForAlbums',
 					'childRequest' => {
@@ -409,6 +421,7 @@ sub getPreferredMenus {
 			{
 				'type' => 'search',
 				'text' => 'Playlists',
+				'imageType' => 'playlists',
 				'childRequest' => {
 					'request' => 'allMusic:searchForPlaylists',
 					'childRequest' => {
@@ -419,6 +432,7 @@ sub getPreferredMenus {
 			{
 				'type' => 'search',
 				'text' => 'Tracks',
+				'imageType' => 'tracks',
 				'childRequest' => {
 					'request' => 'allMusic:searchForTracks'
 				}
@@ -849,6 +863,7 @@ sub getServiceInformation {
 		'id' => getServiceId(),
 		'name' => $serverName,
 		'type' => 'content',
+		'mainCategory' => 'localmusic',
 		'serviceUrl' => 'http://'.$serverAddress
 	};
 	# the request was successful and is not async, send results back to caller!
