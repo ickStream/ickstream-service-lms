@@ -254,7 +254,7 @@ sub getPreferredMenus {
 	my $artistsMenu = {
 		'type' => 'browse',
 		'text' => 'Artists',
-		'imageType' => 'artists',
+		'menuType' => 'artists',
 		'childRequest' => {
 			'request' => 'myMusic:artists',
 			'childRequest' => {
@@ -270,7 +270,7 @@ sub getPreferredMenus {
 	my $composersMenu = {
 		'type' => 'browse',
 		'text' => 'Composers',
-		'imageType' => 'composers',
+		'menuType' => 'artists.composers',
 		'childRequest' => {
 			'request' => 'myMusic:artistsWithRoleComposer',
 			'childRequest' => {
@@ -286,7 +286,7 @@ sub getPreferredMenus {
 	my $conductorsMenu = {
 		'type' => 'browse',
 		'text' => 'Conductors',
-		'imageType' => 'conductors',
+		'menuType' => 'artists.conductors',
 		'childRequest' => {
 			'request' => 'myMusic:artistsWithRoleConductor',
 			'childRequest' => {
@@ -302,7 +302,7 @@ sub getPreferredMenus {
 	my $albumsMenu = {
 		'type' => 'browse',
 		'text' => 'Albums',
-		'imageType' => 'albums',
+		'menuType' => 'albums',
 		'childRequest' => {
 			'request' => 'myMusic:albums',
 			'childRequest' => {
@@ -315,7 +315,7 @@ sub getPreferredMenus {
 	my $genresMenu = {
 		'type' => 'browse',
 		'text' => 'Genres',
-		'imageType' => 'genres',
+		'menuType' => 'categories.genres',
 		'childRequest' => {
 			'request' => 'myMusic:categories',
 			'childRequest' => {
@@ -334,7 +334,7 @@ sub getPreferredMenus {
 	my $playlistsMenu = {
 		'type' => 'browse',
 		'text' => 'Playlists',
-		'imageType' => 'playlists',
+		'menuType' => 'playlists',
 		'childRequest' => {
 			'request' => 'myMusic:playlists',
 			'childRequest' => {
@@ -347,7 +347,7 @@ sub getPreferredMenus {
 	my $decadesMenu = {
 		'type' => 'browse',
 		'text' => 'Decades',
-		'imageType' => 'decades',
+		'menuType' => 'times.decades',
 		'childRequest' => {
 			'request' => 'myMusic:decades',
 			'childRequest' => {
@@ -363,7 +363,7 @@ sub getPreferredMenus {
 	my $yearsMenu = {
 		'type' => 'browse',
 		'text' => 'Years',
-		'imageType' => 'years',
+		'menuType' => 'times.years',
 		'childRequest' => {
 			'request' => 'myMusic:years',
 			'childRequest' => {
@@ -379,7 +379,7 @@ sub getPreferredMenus {
 	my $folderMenu = {
 		'type' => 'browse',
 		'text' => 'Music folders',
-		'imageType' => 'folders',
+		'menuType' => 'folders',
 		'childRequest' => {
 			'request' => 'myMusic:folders',
 			'childRequest' => {
@@ -391,12 +391,12 @@ sub getPreferredMenus {
 	my $searchMenu = {
 		'type' => 'search',
 		'text' => 'Search',
-		'imageType' => 'search',
+		'menuType' => 'search',
 		'childItems' => [
 			{
 				'type' => 'search',
 				'text' => 'Artists',
-				'imageType' => 'artists',
+				'menuType' => 'artists',
 				'childRequest' => {
 					'request' => 'allMusic:searchForArtists',
 					'childRequest' => {
@@ -410,7 +410,7 @@ sub getPreferredMenus {
 			{
 				'type' => 'search',
 				'text' => 'Albums',
-				'imageType' => 'albums',
+				'menuType' => 'albums',
 				'childRequest' => {
 					'request' => 'allMusic:searchForAlbums',
 					'childRequest' => {
@@ -421,7 +421,7 @@ sub getPreferredMenus {
 			{
 				'type' => 'search',
 				'text' => 'Playlists',
-				'imageType' => 'playlists',
+				'menuType' => 'playlists',
 				'childRequest' => {
 					'request' => 'allMusic:searchForPlaylists',
 					'childRequest' => {
@@ -432,7 +432,7 @@ sub getPreferredMenus {
 			{
 				'type' => 'search',
 				'text' => 'Tracks',
-				'imageType' => 'tracks',
+				'menuType' => 'tracks',
 				'childRequest' => {
 					'request' => 'allMusic:searchForTracks'
 				}
