@@ -38,9 +38,9 @@
     </organization>
 
     <scm>
-        <connection>scm:git:git@bitbucket.org:ickstream/ickstream-service-lms.git</connection>
-        <url>scm:git:git@bitbucket.org:ickstream/ickstream-service-lms.git</url>
-        <developerConnection>scm:git:git@bitbucket.org:ickstream/ickstream-service-lms.git</developerConnection>
+        <connection>scm:git:git@github.com:ickStream/ickstream-service-lms.git</connection>
+        <url>scm:git:git@github.com:ickStream/ickstream-service-lms.git</url>
+        <developerConnection>scm:git:git@github.com:ickStream/ickstream-service-lms.git</developerConnection>
     </scm>
 
     <build>
