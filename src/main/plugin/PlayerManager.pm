@@ -105,17 +105,18 @@ sub playerEnabledQuery {
 
 sub initializePlayer {
 	my $player = shift;
+	my $callback = shift;
 	
 	Plugins::IckStreamPlugin::LicenseManager::getApplicationId($player,
 		sub {
 			my $application = shift;
 			
-			_performPlayerInitialization($player);
+			_performPlayerInitialization($player, $callback);
 		},
 		sub {
 			my $error = shift;
 
-			$log->warn("Failed to get application identity for ".$player->name().": \n".$error."\n, see settings page for more information");
+			$log->warn("Failed to get application identity for ".$player->name().": \n".$error);
 		});
 }
 
@@ -147,6 +148,7 @@ sub uninitializePlayer {
 
 sub updateAddressOrRegisterPlayer {
 	my $player = shift;
+	my $callback = shift;
 	my $doNotInitialize = shift;
 
 	my $cloudCoreUrl = _getCloudCoreUrl($player);	
@@ -154,10 +156,10 @@ sub updateAddressOrRegisterPlayer {
 	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
 
 	if(!defined($playerConfiguration->{'accessToken'})) {
-		registerPlayer($player);
+		registerPlayer($player,$callback);
 	}else {
 		if(!main::ISWINDOWS && !isPlayerInitialized($player) && !$doNotInitialize) {
-			initializePlayer($player);
+			initializePlayer($player,$callback);
 			return;
 		}
 		my $uuid = $playerConfiguration->{'uuid'};
@@ -169,10 +171,13 @@ sub updateAddressOrRegisterPlayer {
 				# Do nothing, player already registered
 				$log->debug("Player ".$player->name()." is already registered, successfully updated address in cloud");
 				Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
+				if(defined($callback)) {
+					&{$callback}();
+				}
 			},
 			sub {
 				$log->warn("Failed to update address in cloud, player needs to be re-registered");
-				registerPlayer($cloudCoreUrl, $player);
+				registerPlayer($player,$callback);
 			},
 			$httpParams
 			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
@@ -210,23 +215,28 @@ sub _getCloudCoreUrl {
 
 sub registerPlayer {
 	my $player = shift;
+	my $callback = shift;
 
 	Plugins::IckStreamPlugin::LicenseManager::getApplicationId($player,
 		sub {
 			my $applicationId = shift;
 
 			$log->debug("Successfully got an applicationId, now registering device: ".$player->name());
-			_performPlayerRegistration($applicationId,$player);
+			_performPlayerRegistration($applicationId,$player,$callback);
 		},
 		sub {
 			my $error = shift;
 			$log->warn("Failed to get application identity for ".$player->name().": \n".$error."\n, see settings page for more information");
+			if(defined($callback)) {
+				&{$callback}();
+			}
 		});
 			
 }
 
 sub _performPlayerInitialization {
 	my $player = shift;
+	my $callback = shift;
 	
 	if(defined($player) && ($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio'))) {
 		if ( !defined($initializedPlayers->{$player->id}) ) {
@@ -252,21 +262,28 @@ sub _performPlayerInitialization {
 					sub {
 						$initializedPlayers->{$player->id()} = 1;
 						$log->info("Successfully initialized ".$player->name());
-						updateAddressOrRegisterPlayer($player, 1);
+						updateAddressOrRegisterPlayer($player, $callback,1);
 					},
 					sub {
 						$initializedPlayers->{$player->id()} = undef;
 						$log->warn("Error when initializing ".$player->name());
-						updateAddressOrRegisterPlayer($player, 1);
+						updateAddressOrRegisterPlayer($player, $callback,1);
 					},
 					$params
 				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
 			}else {
-				updateAddressOrRegisterPlayer($player);
+				updateAddressOrRegisterPlayer($player, $callback);
 			}
 
 		}else {
 			$log->debug("Player ".$player->name()." already initialized");
+			if(defined($callback)) {
+				&{$callback}();
+			}
+		}
+	}else {
+		if(defined($callback)) {
+			&{$callback}();
 		}
 	}
 }
@@ -274,6 +291,7 @@ sub _performPlayerInitialization {
 sub _performPlayerRegistration {
 	my $applicationId = shift;
 	my $player = shift;
+	my $callback = shift;
 	
 	my $cloudCoreUrl = _getCloudCoreUrl($player);	
 
@@ -290,6 +308,9 @@ sub _performPlayerRegistration {
 	my $controllerAccessToken = $prefs->get('accessToken');
 	if(!defined($controllerAccessToken)) {
 		$log->warn("Player(".$player->name().") must be manually registered since user is not logged in to ickStream Music Platform");
+		if(defined($callback)) {
+			&{$callback}();
+		}
 		return;
 	}
 
@@ -305,10 +326,16 @@ sub _performPlayerRegistration {
 			}else {
 				$log->warn("Failed to create device registration token for: ".$player->name());
 			}
+			if(defined($callback)) {
+				&{$callback}();
+			}
 				
 		},
 		sub {
 			$log->warn("Failed to create device registration token for: "..$player->name());
+			if(defined($callback)) {
+				&{$callback}();
+			}
 		},
 		$httpParams
 		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$controllerAccessToken,to_json({

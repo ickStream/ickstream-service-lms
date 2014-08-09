@@ -60,8 +60,17 @@ sub getAccessToken {
 			return $playerConfiguration->{'accessToken'};
 		}
 	}
-	my $accessToken = $prefs->get('accessToken');
-	return $accessToken;
+	return undef;
+	#my $accessToken = $prefs->get('accessToken');
+	#return $accessToken;
+}
+
+sub _getCloudCoreUrl {
+	my $player = shift;
+	
+	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	return $cloudCoreUrl;
 }
 
 sub sliceResult {
@@ -96,79 +105,107 @@ sub getOffset {
 	return $index;
 }
 
-sub init {
-	my $accessToken = $prefs->get('accessToken');
-	if(defined($accessToken)) {
-		my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
-		my $requestParams = to_json({
-					'jsonrpc' => '2.0',
-					'id' => 1,
-					'method' => 'findServices',
-					'params' => {
-						'type' => 'content'
+sub playerChange {
+        # These are the two passed parameters
+        my $request=shift;
+        my $player = $request->client();
+
+		if(defined($player) && ($request->isCommand([['client'],['new']]) || $request->isCommand([['client'],['reconnect']]))) {
+			Plugins::IckStreamPlugin::LicenseManager::getLicense($player,
+				sub {
+					my $accessToken = getAccessToken($player);
+					if(defined($accessToken)) {
+						$log->info("Initialize browsing for ".$player->name());
+						init($player)
 					}
-				});
-		$log->info("Retrieve content services from cloud");
-		my $httpParams = { timeout => 35 };
-		Slim::Networking::SimpleAsyncHTTP->new(
-			sub {
-				my $http = shift;
-				my $jsonResponse = from_json($http->content);
-				$cloudServiceEntries = {};
-				my @services = ();
-				if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
-					foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
-						if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
-							foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
-								$cloudServiceEntries->{$service->{'id'}} = $service;
-							}
+				},
+				sub {});
+		}
+}
+
+sub init {
+	my $player = shift;
+	my $accessToken = getAccessToken($player);
+	if(defined($accessToken)) {
+		if(!defined($cloudServiceEntries->{$player->id})) {
+			my $cloudCoreUrl = _getCloudCoreUrl($player);
+			my $requestParams = to_json({
+						'jsonrpc' => '2.0',
+						'id' => 1,
+						'method' => 'findServices',
+						'params' => {
+							'type' => 'content'
 						}
-							
-						getProtocolDescription2(undef, $service->{'id'},
-							sub {
-								my $serviceId = shift;
-								my $protocolEntries = shift;
+					});
+			$log->info("Retrieve content services from cloud for ".$player->name());
+			my $httpParams = { timeout => 35 };
+			Slim::Networking::SimpleAsyncHTTP->new(
+				sub {
+					my $http = shift;
+					my $jsonResponse = from_json($http->content);
+	
+					$cloudServiceEntries->{$player->id} = {};
+					$cloudServiceMenus->{$player->id} = {};
+					$cloudServiceProtocolEntries->{$player->id} = {};
+			
+					my @services = ();
+					if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
+						foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
+							if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
+								foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
+									$cloudServiceEntries->{$player->id}->{$service->{'id'}} = $service;
+								}
+							}
 								
-								getPreferredMenus(undef, $service->{'id'},
-									sub {
-										my $serviceId = shift;
-										my $preferredMenus = shift;
-										
-										foreach my $menu (@{$preferredMenus}) {
-											if($menu->{'type'} eq 'search') {
-												my $searchRequests = findSearchRequests($menu,$protocolEntries);
-												if(scalar(@$searchRequests)>0) {
-													$log->debug("Added search provider for: ".$service->{'name'});
-													Slim::Menu::GlobalSearch->registerInfoProvider('ickstream_'.$service->{'id'} => (
-														func => sub {
-										                	my ( $client, $tags ) = @_;
-										                	return searchMenu($client,$tags,$service, $searchRequests);
-														}
-													));
+							getProtocolDescription2($player, $service->{'id'},
+								sub {
+									my $serviceId = shift;
+									my $protocolEntries = shift;
+									
+									getPreferredMenus($player, $service->{'id'},
+										sub {
+											my $serviceId = shift;
+											my $preferredMenus = shift;
+											
+											foreach my $menu (@{$preferredMenus}) {
+												if($menu->{'type'} eq 'search') {
+													my $searchRequests = findSearchRequests($menu,$protocolEntries);
+													if(scalar(@$searchRequests)>0) {
+														$log->debug("Added search provider for: ".$service->{'name'});
+														Slim::Menu::GlobalSearch->registerInfoProvider('ickstream_'.$service->{'id'} => (
+															func => sub {
+											                	my ( $client, $tags ) = @_;
+											                	return searchMenu($client,$tags,$service, $searchRequests);
+															}
+														));
+													}
 												}
 											}
-										}
-									},
-									sub {
-										$log->warn("Failed to retrieve preferred menus from cloud");
-									});
-							},
-							sub {
-								$log->warn("Failed to retrieve protocol description from cloud");
-							});
+										},
+										sub {
+											my $http = shift;
+											my $error = shift;
+											$log->warn("Failed to retrieve preferred menus from cloud for ".$player->name().": ".$error);
+										});
+								},
+								sub {
+									my $http = shift;
+									my $error = shift;
+									$log->warn("Failed to retrieve protocol description from cloud for ".$player->name().": ".$error);
+								});
+						}
+					}else {
+						$log->warn("Error: ".Dumper($jsonResponse));
 					}
-				}else {
-					$log->warn("Error: ".Dumper($jsonResponse));
-				}
-			},
-			sub {
-				my $http = shift;
-				my $error = shift;
-				$log->warn("Failed to retrieve content services from cloud: ".$error);
-			},
-			$httpParams
-		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);
-
+				},
+				sub {
+					my $http = shift;
+					my $error = shift;
+					$log->warn("Failed to retrieve content services from cloud for ".$player->name().": ".$error);
+				},
+				$httpParams
+			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$accessToken,$requestParams);
+		}
 	}
 }
 
@@ -244,8 +281,6 @@ sub topLevel {
                         type => 'textarea',
                 }]});
 		}else {
-				my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
-				my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 				my $requestParams = to_json({
 							'jsonrpc' => '2.0',
 							'id' => 1,
@@ -261,6 +296,7 @@ sub topLevel {
 					processTopLevel($client, $items,$args, $cb);
 					return;
 				}
+				my $cloudCoreUrl = _getCloudCoreUrl($client);
 				$log->info("Retrieve content services from cloud using ".$cloudCoreUrl);
 				my $httpParams = { timeout => 35 };
 				Slim::Networking::SimpleAsyncHTTP->new(
@@ -293,11 +329,12 @@ sub processTopLevel {
 	my $cb = shift;
 	
 	$cloudServiceEntries = {};
+	$cloudServiceEntries->{$client->id} = {};
 	my @services = ();
 	if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'items'}) {
 		foreach my $service (@{$jsonResponse->{'result'}->{'items'}}) {
 			$log->debug("Found ".$service->{'name'});
-			$cloudServiceEntries->{$service->{'id'}} = $service;
+			$cloudServiceEntries->{$client->id}->{$service->{'id'}} = $service;
 			my $serviceEntry = {
 				name => $service->{'name'},
 				url => \&preferredServiceMenu,
@@ -337,11 +374,11 @@ sub getProtocolDescription2 {
 		&{$errorCb}($serviceId);
 	}
 
-	if(defined($cloudServiceProtocolEntries->{$serviceId})) {
-		&{$successCb}($serviceId,$cloudServiceProtocolEntries->{$serviceId});
+	if(defined($cloudServiceProtocolEntries->{$client->id}->{$serviceId})) {
+		&{$successCb}($serviceId,$cloudServiceProtocolEntries->{$client->id}->{$serviceId});
 	}else {
-		$log->info("Retrieve protocol description for ".$serviceId);
-		my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+		$log->info("Retrieve protocol description for ".$serviceId." for ".$client->name);
+		my $serviceUrl = $cloudServiceEntries->{$client->id}->{$serviceId}->{'url'};
 		$log->info("Retriving data from: $serviceUrl");
 		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
@@ -350,23 +387,23 @@ sub getProtocolDescription2 {
 						my $jsonResponse = from_json($http->content);
 						my @menus = ();
 						if($jsonResponse->{'result'}) {
-							$cloudServiceProtocolEntries->{$serviceId} = {};
+							$cloudServiceProtocolEntries->{$client->id}->{$serviceId} = {};
 							foreach my $context (@{$jsonResponse->{'result'}->{'items'}}) {
 								foreach my $type (keys %{$context->{'supportedRequests'}}) {
 									my $requests = $context->{'supportedRequests'}->{$type};
 									foreach my $requestId (keys %$requests) {
-										$cloudServiceProtocolEntries->{$serviceId}->{$requestId} = $requests->{$requestId};
-										if(!defined($cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'})) {
-											$cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'} = {};
+										$cloudServiceProtocolEntries->{$client->id}->{$serviceId}->{$requestId} = $requests->{$requestId};
+										if(!defined($cloudServiceProtocolEntries->{$client->id}->{$serviceId}->{$requestId}->{'values'})) {
+											$cloudServiceProtocolEntries->{$client->id}->{$serviceId}->{$requestId}->{'values'} = {};
 										}
 										if($type ne 'none') {
-											$cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'}->{'type'} = $type;
+											$cloudServiceProtocolEntries->{$client->id}->{$serviceId}->{$requestId}->{'values'}->{'type'} = $type;
 										}
-										$cloudServiceProtocolEntries->{$serviceId}->{$requestId}->{'values'}->{'contextId'} = $context->{'contextId'};
+										$cloudServiceProtocolEntries->{$client->id}->{$serviceId}->{$requestId}->{'values'}->{'contextId'} = $context->{'contextId'};
 									}
 								}
 							}
-							&{$successCb}($serviceId,$cloudServiceProtocolEntries->{$serviceId});
+							&{$successCb}($serviceId,$cloudServiceProtocolEntries->{$client->id}->{$serviceId});
 						}else {
 							$log->warn("Failed to retrieve protocol description for ".$serviceId.": ".Dumper($jsonResponse));
 							&{$errorCb}($serviceId);
@@ -405,11 +442,11 @@ sub getPreferredMenus {
 		&{$errorCb}($serviceId);
 	}
 
-	if(defined($cloudServiceMenus->{$serviceId})) {
-		&{$successCb}($serviceId,$cloudServiceMenus->{$serviceId});
+	if(defined($cloudServiceMenus->{$client->id}->{$serviceId})) {
+		&{$successCb}($serviceId,$cloudServiceMenus->{$client->id}->{$serviceId});
 	}else {
-		$log->info("Retrieve preferred menus for ".$serviceId);
-		my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+		$log->info("Retrieve preferred menus for ".$serviceId." for ".$client->name);
+		my $serviceUrl = $cloudServiceEntries->{$client->id}->{$serviceId}->{'url'};
 		$log->info("Retriving data from: $serviceUrl");
 		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
@@ -418,8 +455,8 @@ sub getPreferredMenus {
 						my $jsonResponse = from_json($http->content);
 						my @menus = ();
 						if($jsonResponse->{'result'}) {
-							$cloudServiceMenus->{$serviceId} = $jsonResponse->{'result'}->{'items'};
-							&{$successCb}($serviceId,$cloudServiceMenus->{$serviceId});
+							$cloudServiceMenus->{$client->id}->{$serviceId} = $jsonResponse->{'result'}->{'items'};
+							&{$successCb}($serviceId,$cloudServiceMenus->{$client->id}->{$serviceId});
 						}else {
 							$log->warn("Failed to retrieve preferred menus for ".$serviceId.": ".Dumper($jsonResponse));
 							&{$errorCb}($serviceId);
@@ -453,12 +490,12 @@ sub preferredServiceMenu {
                        type => 'textarea',
                }]});
 	}else {
-		getProtocolDescription2(undef, $serviceId,
+		getProtocolDescription2($client, $serviceId,
 			sub {
 				my $serviceId = shift;
 				my $protocolEntries = shift;
 				
-				getPreferredMenus(undef, $serviceId,
+				getPreferredMenus($client, $serviceId,
 					sub {
 						my $serviceId = shift;
 						my $preferredMenus = shift;
@@ -513,7 +550,7 @@ sub preferredServiceMenu {
 											my $searchMenu = searchMenu($client, {
 													search => lc($params->{search})
 												},
-												$cloudServiceEntries->{$serviceId},
+												$cloudServiceEntries->{$client->id}->{$serviceId},
 												$searchRequests);
 											
 											$cb->({
@@ -643,7 +680,7 @@ sub serviceChildRequestMenu {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
 				
-				my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+				my $serviceUrl = $cloudServiceEntries->{$client->id}->{$serviceId}->{'url'};
 				my $request = $protocolDescription->{$childRequest->{'request'}};
 
 				my $params = {};
@@ -849,7 +886,7 @@ sub searchItemMenu {
 				my $serviceId = shift;
 				my $protocolDescription = shift;
 				
-				my $serviceUrl = $cloudServiceEntries->{$serviceId}->{'url'};
+				my $serviceUrl = $cloudServiceEntries->{$client->id}->{$serviceId}->{'url'};
 				my $request = $protocolDescription->{$searchRequest->{'request'}};
 
 				my $params = {

@@ -75,7 +75,7 @@ sub getApplicationId {
 					},
 					sub {
 						my $error = shift;
-						&{$cbFailure}("Failed to retrieve application identity for "._getDeviceName($player).":\n".$error.", see settings page for more information");
+						&{$cbFailure}("Failed to retrieve application identity for "._getDeviceName($player).":\n".$error);
 					});
 			}else {
 				&{$cbFailure}("License for "._getDeviceName($player)." has not been confirmed yet, please goto settings page an confirm it");

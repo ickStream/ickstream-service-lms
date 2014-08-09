@@ -383,9 +383,11 @@ sub enableDisableSqueezePlayPlayers {
 		my @players = Slim::Player::Client::clients();
 		$log->debug("Found ".scalar(@players)." players");
 		foreach my $player (@players) {
-			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
-				$log->debug("Trying to initialize ".$player->name());
-				Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
+			if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
+				if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
+					$log->debug("Trying to initialize ".$player->name());
+					Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
+				}
 			}
 		}
 	}elsif($params->{'disabledSqueezePlayPlayers'}) {
@@ -401,15 +403,17 @@ sub enableDisableSqueezePlayPlayers {
 		my @players = Slim::Player::Client::clients();
 		$log->debug("Found ".scalar(@players)." players");
 		foreach my $player (@players) {
-			if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
-				if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
-					$log->debug("Trying to initialize ".$player->name());
-					Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
-				}elsif(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
-					$log->debug("Trying to register ".$player->name());
-					Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player);
-				}else {
-					$log->debug($player->name()." is already initialized and registered");
+			if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
+				if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
+					if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
+						$log->debug("Trying to initialize ".$player->name());
+						Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
+					}elsif(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
+						$log->debug("Trying to register ".$player->name());
+						Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player);
+					}else {
+						$log->debug($player->name()." is already initialized and registered");
+					}
 				}
 			}
 		}
@@ -442,81 +446,22 @@ sub handleAuthenticationFinished {
 						$uuid = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
 						$prefs->set('controller_uuid',$uuid);
 					}
-					my $serverName = $serverPrefs->get('libraryname');
-					if(!defined($serverName) || $serverName eq '') {
-					                $serverName = Slim::Utils::Network::hostName();
-			        }
-					$log->debug("Registering LMS as device via "._getCloudCoreUrl());
-					my $applicationId = $prefs->get('applicationId');
-					Slim::Networking::SimpleAsyncHTTP->new(
-								sub {
-									my $http = shift;
-									my $jsonResponse = from_json($http->content);
-									if(defined($jsonResponse->{'result'})) {
-										$log->debug("Successfully got a device registration token");
-										Slim::Networking::SimpleAsyncHTTP->new(
-											sub {
-												my $http = shift;
-												my $jsonResponse = from_json($http->content);
-												if(defined($jsonResponse->{'result'})) {
-													$log->info("LMS device registered successfully, storing access token");
-													my $controllerAccessToken = $jsonResponse->{'result'}->{'accessToken'};
-													$prefs->set('accessToken',$controllerAccessToken);
-													$params->{'manageAccountUrl'} = _getManageAccountUrl();
-													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationSuccess.html', $params);
-													my @players = Slim::Player::Client::clients();
-													foreach my $player (@players) {
-														if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
-															$log->debug("Initializing player: ".$player->name());
-															Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
-														}
-													}
-													Plugins::IckStreamPlugin::BrowseManager::init();
-													&{$callback}($client,$params,$output,$httpClient,$response);
-												}else {
-													$log->warn("Failed to register device in cloud: ".Dumper($jsonResponse));
-													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
-													&{$callback}($client,$params,$output,$httpClient,$response);
-												}
-											},
-											sub {
-													$log->warn("Failed to register device in cloud");
-													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
-													&{$callback}($client,$params,$output,$httpClient,$response);
-											},
-											$httpParams
-										)->post(_getCloudCoreUrl(),'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'result'},to_json({
-											'jsonrpc' => '2.0',
-											'id' => 1,
-											'method' => 'addDevice',
-											'params' => {
-												'address' => $serverIP,
-												'hardwareId' => $serverPrefs->get('server_uuid'),
-												'applicationId' => $applicationId
-											}
-										}));
-									}else {
-										$log->warn("Failed to get device registration token from cloud: ".Dumper($jsonResponse));
-										my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
-										&{$callback}($client,$params,$output,$httpClient,$response);
-									}
-								},
-								sub {
-									$log->warn("Failed to get device registration token from cloud");
-									my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
-									&{$callback}($client,$params,$output,$httpClient,$response);
-								},
-								$httpParams
-							)->post(_getCloudCoreUrl(),'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'access_token'},to_json({
-								'jsonrpc' => '2.0',
-								'id' => 1,
-								'method' => 'createDeviceRegistrationToken',
-								'params' => {
-									'id' => $uuid,
-									'name' => $serverName,
-									'applicationId' => $applicationId
-								}
-							}));
+					
+					$prefs->set('accessToken',$jsonResponse->{'access_token'});
+					$params->{'manageAccountUrl'} = _getManageAccountUrl();
+					my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationSuccess.html', $params);
+					my @players = Slim::Player::Client::clients();
+					foreach my $player (@players) {
+						if(Plugins::IckStreamPlugin::isLicenseConfirmed($player)) {
+							if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
+								$log->debug("Initializing player: ".$player->name());
+								Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player, sub {
+										Plugins::IckStreamPlugin::BrowseManager::init($player);
+									});
+							}
+						}
+					}
+					&{$callback}($client,$params,$output,$httpClient,$response);
 				}else {
 					if(defined($jsonResponse->{'error_description'})) {
 						$log->warn("Failed to authenticate: ".$jsonResponse->{'error'}.": ".$jsonResponse->{'error_description'});
