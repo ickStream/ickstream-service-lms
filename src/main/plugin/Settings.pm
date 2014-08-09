@@ -86,15 +86,7 @@ sub handler {
 		$params->{'peerVerification'} = 1;
 	}
 
-	my $serverIP = Slim::Utils::IPDetect::IP();
-	my $port = $serverPrefs->get('httpport');
-	my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
 
-	my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
-	my $authenticationUrl = $cloudCoreUrl;
-	$authenticationUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
-	$params->{'authenticationUrl'} = $authenticationUrl.'/ickstream-cloud-core/oauth?redirect_uri='.$serverUrl.'&client_id=C5589EF9-9C28-4556-942A-765E698215F1';
-        
 	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
 		$log->debug("Verifying password");
 		my $val = $params->{'pref_password'};
@@ -117,101 +109,276 @@ sub handler {
 		}	
 	}
 	if ($params->{'saveSettings'} && $peerVerification) {
-       	eval "use IO::Socket::SSL";
-		if($params->{'pref_disablePeerVerification'}) {
-        	$log->debug("Disabling SSL peer verification\n");
-	        IO::Socket::SSL::set_client_defaults(          
-				'SSL_verify_mode' => 0x0   
-			);
-		}else {
-        	$log->debug("Enabling SSL peer verification\n");
-	        IO::Socket::SSL::set_client_defaults(          
-				'SSL_verify_mode' => 0x1   
-			);
-		}
+		savePeerVerificationSetting($params);
 	}
 	
 	if ($params->{'logout'}) {
-		$log->debug("Uninitializing players");
-		my @players = Slim::Player::Client::clients();
-		foreach my $player (@players) {
-			$log->debug("Uninitializing player ".$player->name());
-			Plugins::IckStreamPlugin::PlayerManager::uninitializePlayer($player);
-		}
-		$prefs->set('accessToken',undef);
+		logout();
 	}
+
+	saveConfirmedLicenses($params);	
 	
-	if($prefs->get('accessToken')) {
-		my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
-		my $manageAccountUrl = $cloudCoreUrl;
-		$manageAccountUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
-		$params->{'manageAccountUrl'} = $manageAccountUrl;
-		$log->debug("Retrieving information about user account");
-		my $httpParams = { timeout => 35 };
-		Slim::Networking::SimpleAsyncHTTP->new(
-			sub {
-				my $http = shift;
-				my $jsonResponse = from_json($http->content);
-				if(defined($jsonResponse->{'result'})) {
-					$log->debug("Logged in user is: ".$jsonResponse->{'result'}->{'name'});
-					$params->{'authenticationName'} = $jsonResponse->{'result'}->{'name'};
-					my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
-					&{$callback}($client,$params,$result,$httpClient,$response);
-				}else {
-					$log->debug("Unable to get logged in user");
-					my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
-					&{$callback}($client,$params,$result,$httpClient,$response);
-				}
-			},
-			sub {
-				$log->debug("Error when getting logged in user");
-				my $result = finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
-				&{$callback}($client,$params,$result,$httpClient,$response);
-			},
-			$httpParams
-		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$prefs->get('accessToken'),to_json({
-			'jsonrpc' => '2.0',
-			'id' => 1,
-			'method' => 'getUser',
-			'params' => {
-			}
-		}));
-		return undef;
+	getApplicationIdForLMS(
+		sub {
+			getUnconfirmedLicenses(
+				sub {
+					getUserInformation(
+						sub {
+							if(!main::ISWINDOWS) {
+								$params->{'daemonSupported'} = 1;
+							}
+							getInitializedPlayers($params);
+							getRegisteredPlayers($params);
+							enableDisableSqueezePlayPlayers($params);
+							my $result = $class->SUPER::handler($client, $params);
+							&{$callback}($client,$params,$result,$httpClient,$response);
+						},
+						$params
+					)
+				},
+				$params
+			);
+		},
+		$params
+	);
+			
+	return undef;
+}
+
+sub _getCloudCoreUrl {
+	return $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+}
+
+sub _getManageAccountUrl {
+	my $manageAccountUrl = _getCloudCoreUrl();
+	$manageAccountUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
+	return $manageAccountUrl;
+}
+
+sub _getRedirectUrl {
+    my $serverIP = Slim::Utils::IPDetect::IP();
+    my $port = $serverPrefs->get('httpport');
+	my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
+    return $serverUrl;
+}
+
+sub savePeerVerificationSetting {
+	my $params = shift;
+	
+	eval "use IO::Socket::SSL";
+	if($params->{'pref_disablePeerVerification'}) {
+       	$log->debug("Disabling SSL peer verification\n");
+        IO::Socket::SSL::set_client_defaults(          
+			'SSL_verify_mode' => 0x0   
+		);
 	}else {
-		$log->debug("Not logged in");
-		return finalizeHandler($class, $client, $params, $callback, $httpClient, $response);
+       	$log->debug("Enabling SSL peer verification\n");
+        IO::Socket::SSL::set_client_defaults(          
+			'SSL_verify_mode' => 0x1   
+		);
 	}
 }
 
-sub finalizeHandler {
-	my ($class, $client, $params, $callback, $httpClient, $response) = @_;
-	
+sub logout {
+	$log->debug("Uninitializing players");
 	my @players = Slim::Player::Client::clients();
+	foreach my $player (@players) {
+		$log->debug("Uninitializing player ".$player->name());
+		Plugins::IckStreamPlugin::PlayerManager::uninitializePlayer($player);
+	}
+	$prefs->set('accessToken',undef);
+}
+
+sub saveConfirmedLicenses {
+	my $params = shift;
+
+	foreach my $param (keys %$params) {
+		if($param =~ /^confirmed_license_(.*)$/) {
+			$log->debug("Registering license confirmation for :". $params->{$param});
+			my $playerModel = $1;
+			my $confirmedLicenseMD5 = $params->{$param};
+			my @players = Slim::Player::Client::clients();
+			foreach my $player (@players) {
+				if($player->model() eq $playerModel) {
+					Plugins::IckStreamPlugin::LicenseManager::confirmLicense($player,$confirmedLicenseMD5);
+				}
+			}
+		}
+	}
+}
+
+sub getApplicationIdForLMS {
+	my $callback = shift;
+	my $params = shift;
+	
+	if(!Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed()) {
+		&{$callback}();
+	}
+	Plugins::IckStreamPlugin::LicenseManager::getApplicationId(undef,
+		sub {
+			my $application = shift;
+			
+			my $authenticationUrl = _getCloudCoreUrl();
+			$authenticationUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
+			$params->{'authenticationUrl'} = $authenticationUrl.'/ickstream-cloud-core/oauth?redirect_uri='._getRedirectUrl().'&client_id='.$application;
+			
+			&{$callback}();
+		},
+		sub {
+			my $error = shift;
+
+			&{$callback}();
+		});
+}
+
+sub getUnconfirmedLicenses {
+	my $callback = shift;
+	my $params = shift;
+	my $remainingPlayers = shift;
+	
+	if(!defined($remainingPlayers)) {
+		my @players = Slim::Player::Client::clients();
+		unshift @players, undef;
+		$remainingPlayers = \@players;
+	}
+	
+	if(scalar(@$remainingPlayers)>0) {
+		my $player = shift @$remainingPlayers;
+		if(!Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
+			if($player) {
+				$log->debug("Getting license for ".$player->name());
+			}else {
+				$log->debug("Getting license for Logitech Media Server");
+			}
+			Plugins::IckStreamPlugin::LicenseManager::getLicense($player,
+				sub {
+					my $md5 = shift;
+
+					if($player) {
+						if(!defined($params->{'unconfirmedLicenses'})) {
+							$params->{'unconfirmedLicenses'} = {};
+						}
+						my $unconfirmedLicenses = $params->{'unconfirmedLicenses'};
+						if(!defined($unconfirmedLicenses->{$md5})) {
+							$unconfirmedLicenses->{$md5} = {};
+						}
+						my $model = $player->model();
+						if(!defined($unconfirmedLicenses->{$md5}->{$model})) {
+							$unconfirmedLicenses->{$md5}->{$model} = $player->modelName();
+						}
+					}
+					
+					getUnconfirmedLicenses($callback, $params, $remainingPlayers);
+				},
+				sub {
+					if($player) {
+						if(!defined($params->{'unsupportedPlayers'})) {
+							my @empty = ();
+							$params->{'unsupportedPlayers'} = \@empty;
+						}
+						my $unsupportedPlayers = $params->{'unsupportedPlayers'};
+						push @$unsupportedPlayers, $player;
+					}
+
+					getUnconfirmedLicenses($callback, $params, $remainingPlayers);
+				});
+		}else {
+			getUnconfirmedLicenses($callback,$params, $remainingPlayers);
+		}
+	}else {
+		&{$callback}();
+	}
+	
+}
+	
+sub getUserInformation {
+	my ($callback, $params) = @_;
+	
+	Plugins::IckStreamPlugin::LicenseManager::getApplicationId(undef,
+		sub {
+			my $applicationId = shift;
+			if($prefs->get('accessToken')) {
+				$params->{'manageAccountUrl'} = _getManageAccountUrl();
+				$log->debug("Retrieving information about user account");
+				my $httpParams = { timeout => 35 };
+				Slim::Networking::SimpleAsyncHTTP->new(
+					sub {
+						my $http = shift;
+						my $jsonResponse = from_json($http->content);
+						if(defined($jsonResponse->{'result'})) {
+							$log->debug("Logged in user is: ".$jsonResponse->{'result'}->{'name'});
+							$params->{'authenticationName'} = $jsonResponse->{'result'}->{'name'};
+							&{$callback}();
+						}else {
+							$log->debug("Unable to get logged in user");
+							&{$callback}();
+						}
+					},
+					sub {
+						$log->debug("Error when getting logged in user");
+						&{$callback}();
+					},
+					$httpParams
+				)->post(_getCloudCoreUrl(),'Content-Type' => 'application/json','Authorization'=>'Bearer '.$prefs->get('accessToken'),to_json({
+					'jsonrpc' => '2.0',
+					'id' => 1,
+					'method' => 'getUser',
+					'params' => {
+					}
+				}));
+				return undef;
+			}else {
+				$log->debug("Not logged in");
+				&{$callback}();
+			}
+		},
+		sub {
+			$log->debug("Not logged in");
+			&{$callback}();
+		})
+}
+
+sub getInitializedPlayers {
+	my $params = shift;
+
 	my @initializedPlayers = ();
-	my @registeredPlayers = ();
+
+	my @players = Slim::Player::Client::clients();
+
 	foreach my $player (@players) {
 		$log->debug("Check if ".$player->name()." is initialized already");
 		if(Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
 			$log->debug($player->name()." is initialized already");
 			push @initializedPlayers, $player;
 		}
+	}
+	if(scalar(@initializedPlayers)>0) {
+		$params->{'initializedPlayers'} = \@initializedPlayers;
+	}
+}
+
+sub getRegisteredPlayers {
+	my $params = shift;
+
+	my @registeredPlayers = ();
+
+	my @players = Slim::Player::Client::clients();
+	foreach my $player (@players) {
 		if(Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
 			push @registeredPlayers, $player;
 		}else {
 			$log->debug($player->name()." is not yet registered");
 		}
 	}
-	if(!main::ISWINDOWS) {
-		$params->{'daemonSupported'} = 1;
-	}
-	if(scalar(@initializedPlayers)>0) {
-		$params->{'initializedPlayers'} = \@initializedPlayers;
-	}
+
 	if(scalar(@registeredPlayers)>0) {
 		$params->{'registeredPlayers'} = \@registeredPlayers;
 	}
+}
+
+sub enableDisableSqueezePlayPlayers {
+	my $params = shift;
 	
-	my $result = $class->SUPER::handler($client, $params);
 	if($params->{'enabledSqueezePlayPlayers'}) {
 		my @players = Slim::Player::Client::clients();
 		$log->debug("Found ".scalar(@players)." players");
@@ -247,7 +414,6 @@ sub finalizeHandler {
 			}
 		}
 	}
-	return $result;
 }
 
 sub handleAuthenticationFinished {
@@ -255,13 +421,11 @@ sub handleAuthenticationFinished {
 
 	if(defined($params->{'code'})) {
 		$log->debug("Authorization code successfully retrieved");
-	    my $serverIP = Slim::Utils::IPDetect::IP();
-	    my $port = $serverPrefs->get('httpport');
-	    my $serverUrl = "http://".$serverIP.":".$port."/plugins/IckStreamPlugin/settings/authenticationCallback.html";
 
-		my $cloudCoreUrl = $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
-		my $cloudCoreToken = $cloudCoreUrl;
+		my $cloudCoreToken = _getCloudCoreUrl();
 		$cloudCoreToken =~ s/^(https?:\/\/.*?)\/.*/\1/;
+
+	    my $serverIP = Slim::Utils::IPDetect::IP();
 
 		my $httpParams = { timeout => 35 };
 		$log->debug("Retrieving token from ".$cloudCoreToken);
@@ -282,7 +446,8 @@ sub handleAuthenticationFinished {
 					if(!defined($serverName) || $serverName eq '') {
 					                $serverName = Slim::Utils::Network::hostName();
 			        }
-					$log->debug("Registering LMS as device via ".$cloudCoreUrl);
+					$log->debug("Registering LMS as device via "._getCloudCoreUrl());
+					my $applicationId = $prefs->get('applicationId');
 					Slim::Networking::SimpleAsyncHTTP->new(
 								sub {
 									my $http = shift;
@@ -297,6 +462,7 @@ sub handleAuthenticationFinished {
 													$log->info("LMS device registered successfully, storing access token");
 													my $controllerAccessToken = $jsonResponse->{'result'}->{'accessToken'};
 													$prefs->set('accessToken',$controllerAccessToken);
+													$params->{'manageAccountUrl'} = _getManageAccountUrl();
 													my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationSuccess.html', $params);
 													my @players = Slim::Player::Client::clients();
 													foreach my $player (@players) {
@@ -319,14 +485,14 @@ sub handleAuthenticationFinished {
 													&{$callback}($client,$params,$output,$httpClient,$response);
 											},
 											$httpParams
-										)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'result'},to_json({
+										)->post(_getCloudCoreUrl(),'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'result'},to_json({
 											'jsonrpc' => '2.0',
 											'id' => 1,
 											'method' => 'addDevice',
 											'params' => {
 												'address' => $serverIP,
 												'hardwareId' => $serverPrefs->get('server_uuid'),
-												'applicationId' => 'C5589EF9-9C28-4556-942A-765E698215F1'
+												'applicationId' => $applicationId
 											}
 										}));
 									}else {
@@ -341,14 +507,14 @@ sub handleAuthenticationFinished {
 									&{$callback}($client,$params,$output,$httpClient,$response);
 								},
 								$httpParams
-							)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'access_token'},to_json({
+							)->post(_getCloudCoreUrl(),'Content-Type' => 'application/json','Authorization'=>'Bearer '.$jsonResponse->{'access_token'},to_json({
 								'jsonrpc' => '2.0',
 								'id' => 1,
 								'method' => 'createDeviceRegistrationToken',
 								'params' => {
 									'id' => $uuid,
 									'name' => $serverName,
-									'applicationId' => 'C5589EF9-9C28-4556-942A-765E698215F1'
+									'applicationId' => $applicationId
 								}
 							}));
 				}else {
@@ -364,12 +530,12 @@ sub handleAuthenticationFinished {
 			sub {
 				my $http = shift;
 				my $error = shift;
-				$log->warn("Authentication error when calling: ".$cloudCoreToken."/ickstream-cloud-core/oauth/token?redirect_uri=".$serverUrl."&code=".$params->{'code'}.": ".$error);
+				$log->warn("Authentication error when calling: ".$cloudCoreToken."/ickstream-cloud-core/oauth/token?redirect_uri="._getRedirectUrl()."&code=".$params->{'code'}.": ".$error);
 				my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationError.html', $params);
 				&{$callback}($client,$params,$output,$httpClient,$response);
 			},
 			$httpParams
-		)->get($cloudCoreToken."/ickstream-cloud-core/oauth/token?redirect_uri=".$serverUrl."&code=".$params->{'code'},'Content-Type' => 'application/json');
+		)->get($cloudCoreToken."/ickstream-cloud-core/oauth/token?redirect_uri="._getRedirectUrl()."&code=".$params->{'code'},'Content-Type' => 'application/json');
 	}
 	return undef;
 }

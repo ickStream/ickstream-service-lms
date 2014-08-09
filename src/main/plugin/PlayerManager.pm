@@ -32,6 +32,7 @@ use Slim::Utils::Log;
 use Slim::Utils::Misc;
 use Slim::Utils::Prefs;
 use JSON::XS::VersionOneAndTwo;
+use Plugins::IckStreamPlugin::LicenseManager;
 
 my $log = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
@@ -39,6 +40,7 @@ my $serverPrefs = preferences('server');
 
 my $initializedPlayers = {};
 my $initializedPlayerDaemon = undef;
+my $PUBLISHER = 'AC9BFD85-26F6-4A97-BEB1-2DE43835A2F0';
 
 sub start {
 	$initializedPlayerDaemon = 1;
@@ -104,6 +106,128 @@ sub playerEnabledQuery {
 sub initializePlayer {
 	my $player = shift;
 	
+	Plugins::IckStreamPlugin::LicenseManager::getApplicationId($player,
+		sub {
+			my $application = shift;
+			
+			_performPlayerInitialization($player);
+		},
+		sub {
+			my $error = shift;
+
+			$log->warn("Failed to get application identity for ".$player->name().": \n".$error."\n, see settings page for more information");
+		});
+}
+
+sub uninitializePlayer {
+	my $player = shift;
+	
+	if(defined($initializedPlayers->{$player->id})) {
+		my $params = { timeout => 35 };
+	    my $serverIP = Slim::Utils::IPDetect::IP();
+	    my $playerConfiguration = $prefs->get('player_'.$player->id()) || {};
+	    my $uuid = $playerConfiguration->{'id'};
+		if(!main::ISWINDOWS) {
+			Slim::Networking::SimpleAsyncHTTP->new(
+				sub {
+					$initializedPlayers->{$player->id()} = undef;
+					$log->info("Successfully removed ".$player->name());
+				},
+				sub {
+					my $http = shift;
+					$initializedPlayers->{$player->id()} = undef;
+					use Data::Dumper;
+					$log->warn("Error when removing ".$player->name()." ".Dumper($http));
+				},
+				$params
+			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
+		}
+	}
+}
+
+sub updateAddressOrRegisterPlayer {
+	my $player = shift;
+	my $doNotInitialize = shift;
+
+	my $cloudCoreUrl = _getCloudCoreUrl($player);	
+	
+	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+
+	if(!defined($playerConfiguration->{'accessToken'})) {
+		registerPlayer($player);
+	}else {
+		if(!main::ISWINDOWS && !isPlayerInitialized($player) && !$doNotInitialize) {
+			initializePlayer($player);
+			return;
+		}
+		my $uuid = $playerConfiguration->{'uuid'};
+		my $serverIP = Slim::Utils::IPDetect::IP();
+		$log->debug("Trying to set player address in cloud to verify if its access token works through: ".$cloudCoreUrl);
+		my $httpParams = { timeout => 35 };
+		Slim::Networking::SimpleAsyncHTTP->new(
+			sub {
+				# Do nothing, player already registered
+				$log->debug("Player ".$player->name()." is already registered, successfully updated address in cloud");
+				Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
+			},
+			sub {
+				$log->warn("Failed to update address in cloud, player needs to be re-registered");
+				registerPlayer($cloudCoreUrl, $player);
+			},
+			$httpParams
+			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
+				'jsonrpc' => '2.0',
+				'id' => 1,
+				'method' => 'setDeviceAddress',
+				'params' => {
+					'deviceId' => $uuid,
+					'address' => $serverIP
+				}
+			}));
+	}
+}
+
+sub _getCloudCoreUrl {
+	my $player = shift;
+	
+	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+
+	my $cloudCoreUrl = undef;
+	if(defined($playerConfiguration->{'cloudCoreUrl'})) {
+		$cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'};
+	}elsif(defined($prefs->get('cloudCoreUrl'))) {
+		$cloudCoreUrl = $prefs->get('cloudCoreUrl');
+		$playerConfiguration->{'cloudCoreUrl'} = $cloudCoreUrl;
+		$prefs->set('player_'.$player->id,$playerConfiguration);
+	}else {
+		$cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		if(defined($playerConfiguration->{'cloudCoreUrl'})) {
+			$playerConfiguration->{'cloudCoreUrl'} = undef;
+			$prefs->set('player_'.$player->id,$playerConfiguration);
+		}
+	}
+}
+
+sub registerPlayer {
+	my $player = shift;
+
+	Plugins::IckStreamPlugin::LicenseManager::getApplicationId($player,
+		sub {
+			my $applicationId = shift;
+
+			$log->debug("Successfully got an applicationId, now registering device: ".$player->name());
+			_performPlayerRegistration($applicationId,$player);
+		},
+		sub {
+			my $error = shift;
+			$log->warn("Failed to get application identity for ".$player->name().": \n".$error."\n, see settings page for more information");
+		});
+			
+}
+
+sub _performPlayerInitialization {
+	my $player = shift;
+	
 	if(defined($player) && ($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio'))) {
 		if ( !defined($initializedPlayers->{$player->id}) ) {
 
@@ -147,96 +271,11 @@ sub initializePlayer {
 	}
 }
 
-sub uninitializePlayer {
+sub _performPlayerRegistration {
+	my $applicationId = shift;
 	my $player = shift;
 	
-	if(defined($initializedPlayers->{$player->id})) {
-		my $params = { timeout => 35 };
-	    my $serverIP = Slim::Utils::IPDetect::IP();
-	    my $playerConfiguration = $prefs->get('player_'.$player->id()) || {};
-	    my $uuid = $playerConfiguration->{'id'};
-		if(!main::ISWINDOWS) {
-			Slim::Networking::SimpleAsyncHTTP->new(
-				sub {
-					$initializedPlayers->{$player->id()} = undef;
-					$log->info("Successfully removed ".$player->name());
-				},
-				sub {
-					my $http = shift;
-					$initializedPlayers->{$player->id()} = undef;
-					use Data::Dumper;
-					$log->warn("Error when removing ".$player->name()." ".Dumper($http));
-				},
-				$params
-			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
-		}
-	}
-}
-
-sub updateAddressOrRegisterPlayer {
-	my $player = shift;
-	my $doNotInitialize = shift;
-	
-	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
-
-	my $cloudCoreUrl = undef;
-	if(defined($playerConfiguration->{'cloudCoreUrl'})) {
-		$cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'};
-	}elsif(defined($prefs->get('cloudCoreUrl'))) {
-		$cloudCoreUrl = $prefs->get('cloudCoreUrl');
-		$playerConfiguration->{'cloudCoreUrl'} = $cloudCoreUrl;
-		$prefs->set('player_'.$player->id,$playerConfiguration);
-	}else {
-		$cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
-		if(defined($playerConfiguration->{'cloudCoreUrl'})) {
-			$playerConfiguration->{'cloudCoreUrl'} = undef;
-			$prefs->set('player_'.$player->id,$playerConfiguration);
-		}
-	}
-	
-	if(!defined($playerConfiguration->{'accessToken'})) {
-		registerPlayer($cloudCoreUrl, $player);
-	}else {
-		if(!main::ISWINDOWS && !isPlayerInitialized($player) && !$doNotInitialize) {
-			initializePlayer($player);
-			return;
-		}
-		my $uuid = $playerConfiguration->{'uuid'};
-		my $serverIP = Slim::Utils::IPDetect::IP();
-		$log->debug("Trying to set player address in cloud to verify if its access token works through: ".$cloudCoreUrl);
-		my $httpParams = { timeout => 35 };
-		Slim::Networking::SimpleAsyncHTTP->new(
-			sub {
-				# Do nothing, player already registered
-				$log->debug("Player ".$player->name()." is already registered, successfully updated address in cloud");
-				Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
-			},
-			sub {
-				$log->warn("Failed to update address in cloud, player needs to be re-registered");
-				registerPlayer($cloudCoreUrl, $player);
-			},
-			$httpParams
-			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
-				'jsonrpc' => '2.0',
-				'id' => 1,
-				'method' => 'setDeviceAddress',
-				'params' => {
-					'deviceId' => $uuid,
-					'address' => $serverIP
-				}
-			}));
-	}
-}
-
-sub registerPlayer {
-	my $cloudCoreUrl = shift;
-	my $player = shift;
-	
-	my $controllerAccessToken = $prefs->get('accessToken');
-	if(!defined($controllerAccessToken)) {
-		$log->warn("Player(".$player->name().") must be manually registered since user is not logged in to ickStream Music Platform");
-		return;
-	}
+	my $cloudCoreUrl = _getCloudCoreUrl($player);	
 
 	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
 	my $uuid = undef;
@@ -246,6 +285,12 @@ sub registerPlayer {
 		$uuid = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
 		$playerConfiguration->{'id'} = $uuid;
 		$prefs->set('player_'.$player->id,$playerConfiguration);
+	}
+
+	my $controllerAccessToken = $prefs->get('accessToken');
+	if(!defined($controllerAccessToken)) {
+		$log->warn("Player(".$player->name().") must be manually registered since user is not logged in to ickStream Music Platform");
+		return;
 	}
 
 	$log->debug("Requesting device registration token from: ".$cloudCoreUrl);
@@ -273,7 +318,7 @@ sub registerPlayer {
 			'params' => {
 				'id' => $uuid,
 				'name' => $player->name(),
-				'applicationId' => 'C5589EF9-9C28-4556-942A-765E698215F1'
+				'applicationId' => $applicationId
 			}
 		}));
 }

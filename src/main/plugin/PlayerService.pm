@@ -175,39 +175,49 @@ sub registerPlayer {
 		$uuid = 'Squeezebox_'.$client->macaddress;
 	}
 	
-	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
-	my $httpParams = { timeout => 35 };
-	Slim::Networking::SimpleAsyncHTTP->new(
+	Plugins::IckStreamPlugin::LicenseManager::getApplicationId($client,
 		sub {
-			my $http = shift;
-			my $jsonResponse = from_json($http->content);
-			if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'accessToken'}) {
-				$log->info("Succeessfully registered player in cloud");
-				$playerConfiguration = $prefs->get('player_'.$client->id) || {};
-				$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
-				$prefs->set('player_'.$client->id,$playerConfiguration);
-			}else {
-				$log->warn("Failed to register player in cloud: ".Dumper($jsonResponse));
-			}
-			sendPlayerStatusChangedNotification($client);
+			my $applicationId = shift;
+			
+			my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+			my $httpParams = { timeout => 35 };
+			Slim::Networking::SimpleAsyncHTTP->new(
+				sub {
+					my $http = shift;
+					my $jsonResponse = from_json($http->content);
+					if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'accessToken'}) {
+						$log->info("Succeessfully registered player in cloud");
+						$playerConfiguration = $prefs->get('player_'.$client->id) || {};
+						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
+						$prefs->set('player_'.$client->id,$playerConfiguration);
+					}else {
+						$log->warn("Failed to register player in cloud: ".Dumper($jsonResponse));
+					}
+					sendPlayerStatusChangedNotification($client);
+				},
+				sub {
+					my $http = shift;
+					my $error = shift;
+					$log->warn("Failed to register player in cloud: ".$error);
+					sendPlayerStatusChangedNotification($client);
+				},
+				$httpParams
+			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$deviceRegistrationToken,to_json({
+				'jsonrpc' => '2.0',
+				'id' => 1,
+				'method' => 'addDevice',
+				'params' => {
+					'applicationId' => $applicationId,
+					'hardwareId' => $uuid,
+					'address' =>  Slim::Utils::IPDetect::IP()
+				}
+			}));
 		},
 		sub {
-			my $http = shift;
 			my $error = shift;
-			$log->warn("Failed to register player in cloud: ".$error);
+			$log->warn("Failed to get an application identity for ".$client->name().": $error");
 			sendPlayerStatusChangedNotification($client);
-		},
-		$httpParams
-	)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$deviceRegistrationToken,to_json({
-		'jsonrpc' => '2.0',
-		'id' => 1,
-		'method' => 'addDevice',
-		'params' => {
-			'applicationId' => 'C5589EF9-9C28-4556-942A-765E698215F1',
-			'hardwareId' => $uuid,
-			'address' =>  Slim::Utils::IPDetect::IP()
-		}
-	}));
+		});
 }
 sub getPlayerConfiguration {
         my $context = shift;

@@ -54,6 +54,7 @@ use Plugins::IckStreamPlugin::PlayerService;
 use Plugins::IckStreamPlugin::BrowseManager;
 use Plugins::IckStreamPlugin::ProtocolHandler;
 use Plugins::IckStreamPlugin::PlayerManager;
+use Plugins::IckStreamPlugin::LicenseManager;
 
 my $log = Slim::Utils::Log->addLogCategory({
 	'category'     => 'plugin.ickstream',
@@ -75,6 +76,10 @@ $prefs->migrate( 2, sub {
 });
 $prefs->migrate( 3, sub {
 	$prefs->set('squeezePlayPlayersEnabled',1);
+	1;
+});
+$prefs->migrate( 4, sub {
+	$prefs->set('confirmedLicenses',{});
 	1;
 });
 
@@ -141,6 +146,7 @@ sub webPages {
 	Slim::Web::Pages->addRawFunction('IckStreamPlugin/PlayerService/jsonrpc', \&Plugins::IckStreamPlugin::PlayerService::handleJSONRPC);
 	Slim::Web::Pages->addRawFunction('IckStreamPlugin/discovery', \&Plugins::IckStreamPlugin::LocalServiceManager::handleDiscoveryJSON);
 	Slim::Web::Pages->addPageFunction('IckStreamPlugin/settings/authenticationCallback\.html', \&Plugins::IckStreamPlugin::Settings::handleAuthenticationFinished);
+	Slim::Web::Pages->addPageFunction('IckStreamPlugin/license_.*\.txt', \&Plugins::IckStreamPlugin::LicenseManager::showLicense);
 	Slim::Web::HTTP::addCloseHandler(\&Plugins::IckStreamPlugin::JsonHandler::handleClose);
 
 	$class->SUPER::webPages();

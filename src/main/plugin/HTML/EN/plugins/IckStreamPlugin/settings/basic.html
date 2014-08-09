@@ -11,17 +11,19 @@
         
 
 		[% IF authorize %]
-        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD" desc="PLUGIN_ICKSTREAM_LMS_PASSWORD_DESC" %]
-                <input type="password" class="stdedit" name="pref_password" id="password" value="[% prefs.pref_password %]" size="40">
+	        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD" desc="PLUGIN_ICKSTREAM_LMS_PASSWORD_DESC" %]
+	                <input type="password" class="stdedit" name="pref_password" id="password" value="[% prefs.pref_password %]" size="40">
+	        [% END %]
+	
+	        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD_REPEAT" desc="" %]
+	                <input type="password" class="stdedit" name="pref_password_repeat" id="password" value="[% prefs.pref_password %]" size="40">
+	        [% END %]
         [% END %]
-
-        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD_REPEAT" desc="" %]
-                <input type="password" class="stdedit" name="pref_password_repeat" id="password" value="[% prefs.pref_password %]" size="40">
-        [% END %]
-        [% END %]
+        
         [% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT" desc="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT_DESC" %]
                 <input type="text" class="stdedit" name="pref_daemonPort" id="daemonPort" value="[% prefs.pref_daemonPort %]" size="5">
         [% END %]
+        
         [% IF peerVerification %]
        	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION" desc="PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION_DESC" %]
                 <select name="pref_disablePeerVerification">
@@ -31,12 +33,27 @@
         [% END %]
 
         [% END %]
+
         [% WRAPPER setting title="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS" desc="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS_DESC" %]
                 <select name="pref_squeezePlayPlayersEnabled">
                         <option value="1" [% IF prefs.squeezePlayPlayersEnabled %]selected[% END %]>[% "ENABLED" | string %]</option>
                         <option value="0" [% IF NOT prefs.squeezePlayPlayersEnabled %]selected[% END %]>[% "DISABLED" | string %]</option>
                 </select>
         [% END %]
+
+		[% IF unconfirmedLicenses %]
+	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES" desc="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES_DESC" %]
+	        	<div style="color:red;font-weight:bold;">[% "PLUGIN_ICKSTREAM_UNCONFIRMED_TERMS_OF_USE" | string %]:<br/></div>
+				[% FOREACH licenseKey = unconfirmedLicenses.keys.sort %]
+					[% FOREACH playerModel = unconfirmedLicenses.$licenseKey.keys.sort %]
+						<input name="confirmed_license_[% playerModel %]" type="checkbox" value="[% licenseKey %]">&nbsp;&nbsp;&nbsp;<A href="[% webroot %]plugins/IckStreamPlugin/license_[% playerModel %].txt" target="_blank">[% 	"PLUGIN_ICKSTREAM_APPROVE_LICENSE_FOR" | string %]: 
+						[% unconfirmedLicenses.$licenseKey.$playerModel %]</A>
+						</input><BR/>
+					[% END %]
+				[% END %]
+	        [% END %]
+		[% END %]
+		
         [% IF authenticationUrl %]
 	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_CLOUD_SERVICE" desc="PLUGIN_ICKSTREAM_CLOUD_SERVICE_DESC" %]
 	        	[% IF authenticationName %]
@@ -52,6 +69,8 @@
 		            <BR/><BR/>
 		            <a target="_blank" href="[% manageAccountUrl %]">[% 'PLUGIN_ICKSTREAM_CLOUD_ACCOUNT_MANAGEMENT' | string %]</a>
 		        [% END %]
+		        <BR/><BR/>
+		        [% "PLUGIN_ICKSTREAM_CLOUD_LOGIN_REFRESH_MESSAGE" | string %]</a>
 	        [% END %]
         [% END %]
         [% IF authenticationName %]
@@ -79,6 +98,14 @@
 				<BR/>
 	            <input name="refresh_players" type="submit" class="stdclick" value="[% "PLUGIN_ICKSTREAM_PLAYERS_REFRESH" | string %]">
 	            <input name="register_players" type="submit" class="stdclick" value="[% "PLUGIN_ICKSTREAM_PLAYERS_FORCE_REGISTER" | string %]">
+			[% END %]
+		[% END %]
+
+		[% IF unsupportedPlayers %]
+	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_UNSUPPORTED_PLAYERS" desc="PLUGIN_ICKSTREAM_UNSUPPORTED_PLAYERS_DESC" %]
+				[% FOREACH player IN unsupportedPlayers %]
+					[% player.name %]<BR/>
+				[% END %]
 			[% END %]
 		[% END %]
 

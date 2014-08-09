@@ -117,3 +117,24 @@ PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION
 
 PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION_DESC
 	EN	Makes it possible to disable SSL peer verification which doesn't work properly in some installations, for example on some Synology NAS boxes. If login does not work you can try disabling SSL peer verification and check if it starts working. Please note that disabling SSL per verification will disable it for complete LMS and not just for ickStream plugin.
+
+PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES
+	EN	Unconfirmed terms of use
+
+PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES_DESC
+	EN	You need to confirm these terms of use to be able to use ickStream Music Platform on the listed player models
+
+PLUGIN_ICKSTREAM_UNSUPPORTED_PLAYERS
+	EN	Unsupported players
+
+PLUGIN_ICKSTREAM_UNSUPPORTED_PLAYERS_DESC
+	EN	The following players are currently unsupported in your setup. The reason for this is likely that we haven't approved this player model for usage with ickStream Music Platform yet. If it's a commercial player the reason could also be that we haven't yet approved this commercial vendor for usage with ickStream Music Platform, if you suspect this is the case please contact us or the commercial vendor for more information.
+
+PLUGIN_ICKSTREAM_UNCONFIRMED_TERMS_OF_USE
+	EN	You need to agree with the following terms of use to use these player models
+
+PLUGIN_ICKSTREAM_APPROVE_LICENSE_FOR
+	EN	I agree with terms of use for
+
+PLUGIN_ICKSTREAM_CLOUD_LOGIN_REFRESH_MESSAGE
+	EN	If you have just logged in successfully, click "Refresh" button to update the page
