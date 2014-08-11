@@ -102,22 +102,22 @@ sub setPlayerConfiguration {
                 $log->debug( $client->name() .": ". "setPlayerConfiguration(" . Data::Dump::dump($reqParams) . ")" );
         }
         my $sendNotification = 0;
-        my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+        my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
         if(defined($reqParams->{'cloudCoreUrl'}) && ((!defined($playerConfiguration->{'cloudCoreUrl'}) && $reqParams->{'cloudCoreUrl'} ne 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc') || $reqParams->{'cloudCoreUrl'} ne $playerConfiguration->{'cloudCoreUrl'})) {
         	$playerConfiguration->{'cloudCoreUrl'} = $reqParams->{'cloudCoreUrl'};
         	$playerConfiguration->{'accessToken'} = undef;
-        	$prefs->set('player_'.$client->id,$playerConfiguration);
+        	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	# TODO: Add some error handling for invalid urls
         }
         if(defined($reqParams->{'deviceRegistrationToken'}) && $reqParams->{'deviceRegistrationToken'} ne '') {
         	registerPlayer($client,$reqParams->{'deviceRegistrationToken'});
         }elsif(defined($reqParams->{'deviceRegistrationToken'})) {
         	$playerConfiguration->{'accessToken'} = undef;
-        	$prefs->set('player_'.$client->id,$playerConfiguration);
+        	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	$sendNotification = 1;
         }elsif(defined($reqParams->{'accessToken'}) && $reqParams->{'accessToken'} ne '') {
         	$playerConfiguration->{'accessToken'} = $reqParams->{'accessToken'};
-        	$prefs->set('player_'.$client->id,$playerConfiguration);
+        	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	
         	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 		my $httpParams = { timeout => 35 };
@@ -130,9 +130,9 @@ sub setPlayerConfiguration {
 					my $http = shift;
 					my $error = shift;
 					$log->warn("Failed to update IP-address in cloud: ".$error);
-					$playerConfiguration = $prefs->get('player_'.$client->id) || {};
+					$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 					$playerConfiguration->{'accessToken'} = undef;
-					$prefs->set('player_'.$client->id,$playerConfiguration);
+					$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
 					sendPlayerStatusChangedNotification($client);
 				},
 				$httpParams
@@ -148,7 +148,7 @@ sub setPlayerConfiguration {
         	$sendNotification = 1;
         }elsif(defined($reqParams->{'accessToken'})) {
         	$playerConfiguration->{'accessToken'} = undef;
-        	$prefs->set('player_'.$client->id,$playerConfiguration);
+        	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	$sendNotification = 1;
         }
         
@@ -168,9 +168,9 @@ sub registerPlayer {
 	my $successCb = shift;
 	my $failureCb = shift;
 	
-    my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+    my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 	$playerConfiguration->{'accessToken'} = undef;
-	$prefs->set('player_'.$client->id,$playerConfiguration);
+	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
 	
 	my $uuid = $client->uuid;
 	if(!defined($uuid)) {
@@ -189,9 +189,9 @@ sub registerPlayer {
 					my $jsonResponse = from_json($http->content);
 					if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'accessToken'}) {
 						$log->info("Succeessfully registered player in cloud");
-						$playerConfiguration = $prefs->get('player_'.$client->id) || {};
+						$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
-						$prefs->set('player_'.$client->id,$playerConfiguration);
+						$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
 						sendPlayerStatusChangedNotification($client);
 						if($successCb) {
 							&{$successCb}($client);
@@ -242,7 +242,7 @@ sub getPlayerConfiguration {
         if ( $log->is_debug ) {
                 $log->debug( $client->name() .": ". "getPlayerConfiguration()" );
         }
-		my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+		my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
         my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
         my $result = {
         	'cloudCoreUrl' => $cloudCoreUrl,
@@ -264,14 +264,14 @@ sub getPlayerStatus {
         }
         my $result = {
         };
-		my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+		my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 		if(defined($playerConfiguration->{'accessToken'})) {
 			$result->{'cloudCoreStatus'} = 'REGISTERED';
 		}else {
 			$result->{'cloudCoreStatus'} = 'UNREGISTERED';
 		}
 		
-		my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+		my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
 		if(defined($playerStatus->{'playbackQueuePos'})) {
 	       	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
 	       	
@@ -319,7 +319,7 @@ sub play {
         
         my $notification = 1;
         if($reqParams->{'playing'} eq 'true' || $reqParams->{'playing'} eq '1') {
-			my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+			my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         	$notification = refreshCurrentPlaylist($client, $playerStatus->{'playbackQueuePos'});
 
         }elsif($reqParams->{'playing'} eq 'false' || $reqParams->{'playing'} eq '0') {
@@ -347,7 +347,7 @@ sub refreshCurrentPlaylist {
 	my $fromIckStream = shift;
 	
 	my $notification = 1;
-	my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+	my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
 	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
    	my $playbackQueuePos = $wantedPlaybackQueuePos || $playerStatus->{'playbackQueuePos'} || 0;
    	
@@ -404,11 +404,11 @@ sub refreshCurrentPlaylist {
 			}
 			
 		}else {
-			my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+			my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
 			if(!$fromIckStream) {
 				$playbackQueuePos = $currentPlaylistWindowOffset->{$client->id} + $songIndex;
 				$playerStatus->{'playbackQueuePos'} = $playbackQueuePos;
-				$prefs->set('playerstatus_'.$client->id,$playerStatus);
+				$prefs->client($client)->set('playerStatus',$playerStatus);
 			}
 			$log->info("Current song matches current playlist, adding and removing tracks outside window");
 			if($songIndex > 1) {
@@ -510,7 +510,7 @@ sub getSeekPosition {
         my $result = {
         };
         
-		my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+		my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
 		if(defined($playerStatus->{'playbackQueuePos'})) {
 			$result->{'playbackQueuePos'} = $playerStatus->{'playbackQueuePos'};
 			$result->{'seekPos'} = Slim::Player::Source::songTime($client);
@@ -531,7 +531,7 @@ sub setSeekPosition {
         }
         my $result = {
         };
-		my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+		my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
 		if(defined($playerStatus->{'playbackQueuePos'})) {
 			$result->{'playbackQueuePos'} = $playerStatus->{'playbackQueuePos'};
 			$result->{'seekPos'} = Slim::Player::Source::songTime($client);
@@ -550,7 +550,7 @@ sub getTrack {
         if ( $log->is_debug ) {
                 $log->debug( $client->name() .": ". "getTrack(" . Data::Dump::dump($reqParams) . ")" );
         }
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
 
        	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
        	my @emptyPlaybackQueue = ();
@@ -586,7 +586,7 @@ sub setTrack {
                 $log->debug( $client->name() .": ". "setTrack(" . Data::Dump::dump($reqParams) . ")" );
         }
         
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
        	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
        	my @emptyPlaybackQueue = ();
        	$playbackQueue = \@emptyPlaybackQueue if(!defined($playbackQueue));
@@ -594,7 +594,7 @@ sub setTrack {
         if(defined($reqParams->{'playbackQueuePos'}) && $reqParams->{'playbackQueuePos'} < scalar(@{$playbackQueue})) {
         	$playerStatus->{'playbackQueuePos'} = $reqParams->{'playbackQueuePos'};
         	$playerStatus->{'seekPos'} = 0;
-        	$prefs->set('playerstatus_'.$client->id,$playerStatus);
+        	$prefs->client($client)->set('playerStatus',$playerStatus);
         	# TODO: if playing
         	my $notification = refreshCurrentPlaylist($client, $playerStatus->{'playbackQueuePos'},1);
         	if($notification) {
@@ -711,7 +711,7 @@ sub setPlaybackQueueMode {
         if ( $log->is_debug ) {
                 $log->debug( $client->name() .": ". "setPlaybackQueueMode(" . Data::Dump::dump($reqParams) . ")" );
         }
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         my $shuffle = 0;
         my $sendPlaybackQueueChanged = 0;
         if(($playerStatus->{'playbackQueueMode'} eq 'QUEUE_SHUFFLE' || $playerStatus->{'playbackQueueMode'} eq 'QUEUE_REPEAT_SHUFFLE') &&
@@ -752,7 +752,7 @@ sub setPlaybackQueueMode {
         	$shuffle = 1;
         }
         $playerStatus->{'playbackQueueMode'} = $reqParams->{'playbackQueueMode'};
-        $prefs->set('playerstatus_'.$client->id,$playerStatus);
+        $prefs->client($client)->set('playerStatus',$playerStatus);
         if($shuffle) {
         	$log->debug("Shuffling playlist");
 	       	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
@@ -769,7 +769,7 @@ sub setPlaybackQueueMode {
         	if(defined($currentItem)) {
         		splice @{$playbackQueue},0,0,$currentItem;
 	        	$playerStatus->{'playbackQueuePos'} = 0;
-	        	$prefs->set('playerstatus_'.$client->id,$playerStatus);
+	        	$prefs->client($client)->set('playerStatus',$playerStatus);
         	}
         	Plugins::IckStreamPlugin::PlaybackQueueManager::setPlaybackQueue($client, $playbackQueue);
         	
@@ -830,7 +830,7 @@ sub getPlaybackQueue {
         }
         my $result = {
         };
-		my $playerStatus = $prefs->get('playerstatus_'.$client->id);
+		my $playerStatus = $prefs->client($client)->get('playerStatus');
 		if(defined($playerStatus->{'playlistId'})) {
 			$result->{'playlistId'} = $playerStatus->{'playlistId'}
 		}
@@ -895,10 +895,10 @@ sub setPlaylistName {
         if ( $log->is_debug ) {
                 $log->debug( $client->name() .": ". "setPlaylistName(" . Data::Dump::dump($reqParams) . ")" );
         }
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         $playerStatus->{'playlistId'} = $reqParams->{'playlistId'};
         $playerStatus->{'playlistName'} = $reqParams->{'playlistName'};
-        $prefs->set('playerstatus_'.$client->id,$playerStatus);
+        $prefs->client($client)->set('playerStatus',$playerStatus);
         
         my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
        	my @emptyPlaybackQueue = ();
@@ -927,7 +927,7 @@ sub addTracks {
         if ( $log->is_debug ) {
                 $log->debug( $client->name() .": ". "addTracks(" . Data::Dump::dump($reqParams) . ")" );
         }
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         my $items = $reqParams->{'items'};
         for my $item (@{$items}) {
         	my $instanceId = $nextTrackInstance;
@@ -988,7 +988,7 @@ sub addTracks {
         if(!defined($playerStatus->{'playbackQueuePos'})) {
         	$playerStatus->{'playbackQueuePos'} = 0;
         }
-        $prefs->set('playerstatus_'.$client->id,$playerStatus);
+        $prefs->client($client)->set('playerStatus',$playerStatus);
 		refreshCurrentPlaylist($client,undef,1);
         sendPlaybackQueueChangedNotification($client);
         
@@ -1010,7 +1010,7 @@ sub removeTracks {
         if ( $log->is_debug ) {
                 $log->debug( $client->name() .": ". "removeTracks(" . Data::Dump::dump($reqParams) . ")" );
         }
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         
        	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
 
@@ -1072,7 +1072,7 @@ sub removeTracks {
         if($playerStatus->{'playbackQueuePos'} != $modifiedPlaybackQueuePos) {
         	$playerStatus->{'playbackQueuePos'} = $modifiedPlaybackQueuePos;
         	# TODO: If not playing
-        	$prefs->set('playerstatus_'.$client->id,$playerStatus);
+        	$prefs->client($client)->set('playerStatus',$playerStatus);
         	sendPlayerStatusChangedNotification($client);
         }
         
@@ -1083,7 +1083,7 @@ sub removeTracks {
         	}else {
         		$playerStatus->{'playbackQueuePos'} = undef;
         		$playerStatus->{'seekPos'} = undef;
-        		$prefs->set('playerstatus_'.$client->id,$playerStatus);
+        		$prefs->client($client)->set('playerStatus',$playerStatus);
         		# TODO: Pause
         	}
         }
@@ -1112,7 +1112,7 @@ sub moveTracks {
                 $log->debug( $client->name() .": ". "moveTracks(" . Data::Dump::dump($reqParams) . ")" );
         }
         
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         my $modifiedPlaybackQueuePos = $playerStatus->{'playbackQueuePos'};
 
        	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
@@ -1236,7 +1236,7 @@ sub moveTracks {
 		my $sendPlayerStatusChanged = 0;
 		if($playerStatus->{'playbackQueuePos'} != $modifiedPlaybackQueuePos) {
 			$playerStatus->{'playbackQueuePos'} = $modifiedPlaybackQueuePos;
-			$prefs->set('playerstatus_'.$client->id,$playerStatus);
+			$prefs->client($client)->set('playerStatus',$playerStatus);
 			$sendPlayerStatusChanged = 1;
 		}
 		$log->debug("New playback queue pos is: ".$playerStatus->{'playbackQueuePos'});
@@ -1265,7 +1265,7 @@ sub setTracks {
         if ( $log->is_debug ) {
                 $log->debug( $client->name() .": ". "setTracks(" . Data::Dump::dump($reqParams) . ")" );
         }
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         $playerStatus->{'playlistId'} = $reqParams->{'playlistId'};
         $playerStatus->{'playlistName'} = $reqParams->{'playlistName'};
         my $items = $reqParams->{'items'};
@@ -1312,7 +1312,7 @@ sub setTracks {
         	# TODO: Pause playback if playing
        		$sendPlayerStatusChanged = 1;
         }
-        $prefs->set('playerstatus_'.$client->id,$playerStatus);
+        $prefs->client($client)->set('playerStatus',$playerStatus);
         
         if($sendPlayerStatusChanged) {
         	sendPlayerStatusChangedNotification($client);
@@ -1337,7 +1337,7 @@ sub shuffleTracks {
                 $log->debug( $client->name() .": ". "shuffleTracks()" );
         }
         
-        my $playerStatus = $prefs->get('playerstatus_'.$client->id) || getDefaultPlayerStatus();
+        my $playerStatus = $prefs->client($client)->get('playerStatus') || getDefaultPlayerStatus();
         
        	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
        	
@@ -1355,7 +1355,7 @@ sub shuffleTracks {
 	       	Plugins::IckStreamPlugin::PlaybackQueueManager::setPlaybackQueue($client, $playbackQueue);
 	       	
         	$playerStatus->{'playbackQueuePos'} = 0;
-        	$prefs->set('playerstatus_'.$client->id,$playerStatus);
+        	$prefs->client($client)->set('playerStatus',$playerStatus);
 	       	
 	       	if($playerStatus->{'playbackQueueMode'} ne 'QUEUE_SHUFFLE' && $playerStatus->{'playbackQueueMode'} ne 'QUEUE_REPEAT_SHUFFLE') {
 			       	my @emptyOriginalPlaybackQueue = ();
@@ -1382,8 +1382,8 @@ sub shuffleTracks {
 sub sendPlaybackQueueChangedNotification {
 	my $client = shift;
 	
-	my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
-	my $playerStatus = $prefs->get('playerstatus_'.$client->id);
+	my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
+	my $playerStatus = $prefs->client($client)->get('playerStatus');
 	my $notification = {
 		'jsonrpc' => '2.0',
 		'method' => 'playbackQueueChanged',
@@ -1433,14 +1433,14 @@ sub sendPlayerStatusChangedNotification {
 	};
 	
 	
-	my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+	my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 	if(defined($playerConfiguration->{'accessToken'})) {
 		$notification->{'params'}->{'cloudCoreStatus'} = 'REGISTERED';
 	}else {
 		$notification->{'params'}->{'cloudCoreStatus'} = 'UNREGISTERED';
 	}
 	
-	my $playerStatus = $prefs->get('playerstatus_'.$client->id);
+	my $playerStatus = $prefs->client($client)->get('playerStatus');
 	if(defined($playerStatus->{'playbackQueuePos'})) {
        	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($client);
        	
@@ -1495,7 +1495,7 @@ sub getDefaultPlayerStatus() {
 sub moveToNextTrack {
 	my $player = shift;
 	if(!$inProcessOfChangingPlaylist->{$player->id}) {
-		my $playerStatus = $prefs->get('playerstatus_'.$player->id) || getDefaultPlayerStatus();
+		my $playerStatus = $prefs->client($player)->get('playerStatus') || getDefaultPlayerStatus();
 		if(defined($playerStatus->{'playbackQueuePos'})) {
 	       	my $playbackQueue = Plugins::IckStreamPlugin::PlaybackQueueManager::getPlaybackQueue($player);
 	       	
@@ -1517,7 +1517,7 @@ sub moveToNextTrack {
 		        	$playing = 1;
 				}
 			}
-        	$prefs->set('playerstatus_'.$player->id,$playerStatus);
+        	$prefs->client($player)->set('playerStatus',$playerStatus);
         	if($playing) {
 				my $notification = refreshCurrentPlaylist($player);
 				if($notification) {

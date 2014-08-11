@@ -126,7 +126,7 @@ sub getService {
 			$localServiceRequestIds->{$requestId} = $serviceId;
 			$localRequestedServices->{$serviceId} = $requestId;
 		
-			my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+			my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 			
 		    my $serverIP = Slim::Utils::IPDetect::IP();
 			my $params = { timeout => 35 };

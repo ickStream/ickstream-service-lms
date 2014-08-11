@@ -154,7 +154,7 @@ sub _getTrack {
 	}
 	
 	my $meta = Plugins::IckStreamPlugin::ItemCache::getItemFromCache( $trackId );
-	my $playerConfiguration = $prefs->get('player_'.$client->id()) || {};
+	my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 	if($serviceId =~ /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/) {
 		if(!$meta) {
 			$log->info("Getting metadata for ".$trackId." for ".$client->name());
@@ -334,7 +334,7 @@ sub responseCallback {
 		my $song   = $params->{song};
 		my $client = $song->master();
 		
-		my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+		my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 		my ($trackId,$serviceId) = _getStreamParams( $params->{url} );
 		if($jsonResponse && $jsonResponse->{'result'}) {
 			$log->info("Successfully retrieved metadata for ".$trackId);
@@ -524,7 +524,7 @@ sub getMetadataFor {
 	if ( !$meta && !$client->master->pluginData('ickStreamFetchingMeta-'.$trackId)) {
 		$client->master->pluginData('ickStreamFetchingMeta-'.$trackId => 1);
 		my $httpParams = { timeout => 35 };
-		my $playerConfiguration = $prefs->get('player_'.$client->id()) || {};
+		my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 		my $uuid = $playerConfiguration->{'id'};
 		Plugins::IckStreamPlugin::CloudServiceManager::getService($client,$serviceId,
 			sub {

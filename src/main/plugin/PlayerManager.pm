@@ -79,7 +79,7 @@ sub isPlayerInitialized {
 sub isPlayerRegistered {
 	my $player = shift;
 
-	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+	my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 
 	return defined($playerConfiguration->{'accessToken'});
 }
@@ -129,7 +129,7 @@ sub uninitializePlayer {
 	if(defined($initializedPlayers->{$player->id})) {
 		my $params = { timeout => 35 };
 	    my $serverIP = Slim::Utils::IPDetect::IP();
-	    my $playerConfiguration = $prefs->get('player_'.$player->id()) || {};
+	    my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 	    my $uuid = $playerConfiguration->{'id'};
 		if(!main::ISWINDOWS) {
 			Slim::Networking::SimpleAsyncHTTP->new(
@@ -156,7 +156,7 @@ sub updateAddressOrRegisterPlayer {
 
 	my $cloudCoreUrl = _getCloudCoreUrl($player);	
 	
-	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+	my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 
 	if(!defined($playerConfiguration->{'accessToken'})) {
 		registerPlayer($player,$callback);
@@ -198,7 +198,7 @@ sub updateAddressOrRegisterPlayer {
 sub _getCloudCoreUrl {
 	my $player = shift;
 	
-	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+	my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 
 	my $cloudCoreUrl = undef;
 	if(defined($playerConfiguration->{'cloudCoreUrl'})) {
@@ -207,13 +207,13 @@ sub _getCloudCoreUrl {
 	}elsif(defined($prefs->get('cloudCoreUrl'))) {
 		$cloudCoreUrl = $prefs->get('cloudCoreUrl');
 		$playerConfiguration->{'cloudCoreUrl'} = $cloudCoreUrl;
-		$prefs->set('player_'.$player->id,$playerConfiguration);
+		$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 		return $cloudCoreUrl;
 	}else {
 		$cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 		if(defined($playerConfiguration->{'cloudCoreUrl'})) {
 			$playerConfiguration->{'cloudCoreUrl'} = undef;
-			$prefs->set('player_'.$player->id,$playerConfiguration);
+			$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 		}
 		return $cloudCoreUrl;
 	}
@@ -251,7 +251,7 @@ sub _performPlayerInitialization {
 			$log->debug("Initializing player: ".$player->name());
 			my $params = { timeout => 35 };
 			my $uuid = undef;
-			my $playerConfiguration = $prefs->get('player_'.$player->id()) || {};
+			my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 			if(defined($playerConfiguration->{'id'})) {
 				$uuid = $playerConfiguration->{'id'};
 			}else {
@@ -262,7 +262,7 @@ sub _performPlayerInitialization {
 			$players->{$uuid} = $player->id();
 			$prefs->set('players',$players);
 			$playerConfiguration->{'id'} = $uuid;
-			$prefs->set('player_'.$player->id(), $playerConfiguration);
+			$prefs->client($player)->set('playerConfiguration', $playerConfiguration);
 			if(!main::ISWINDOWS) {
 			    my $serverIP = Slim::Utils::IPDetect::IP();
 				Slim::Networking::SimpleAsyncHTTP->new(
@@ -302,14 +302,14 @@ sub _performPlayerRegistration {
 	
 	my $cloudCoreUrl = _getCloudCoreUrl($player);	
 
-	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+	my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 	my $uuid = undef;
 	if(defined($playerConfiguration->{'id'})) {
 		$uuid = $playerConfiguration->{'id'};
 	}else {
 		$uuid = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
 		$playerConfiguration->{'id'} = $uuid;
-		$prefs->set('player_'.$player->id,$playerConfiguration);
+		$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 	}
 
 	my $controllerAccessToken = $prefs->get('accessToken');

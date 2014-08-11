@@ -72,7 +72,7 @@ sub _refreshContentServices {
 	my $client = shift;
 	my $callback = shift;
 	
-	my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
+	my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 	
 	if(defined($playerConfiguration->{'accessToken'})) {

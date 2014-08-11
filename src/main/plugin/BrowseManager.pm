@@ -55,7 +55,7 @@ sub getAccessToken {
 	my $player = shift;
 	
 	if(defined($player)) {
-		my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+		my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 		if(defined($playerConfiguration->{'accessToken'})) {
 			return $playerConfiguration->{'accessToken'};
 		}
@@ -68,7 +68,7 @@ sub getAccessToken {
 sub _getCloudCoreUrl {
 	my $player = shift;
 	
-	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+	my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 	return $cloudCoreUrl;
 }

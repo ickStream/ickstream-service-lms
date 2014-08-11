@@ -82,12 +82,44 @@ $prefs->migrate( 4, sub {
 	$prefs->set('confirmedLicenses',{});
 	1;
 });
+$prefs->migrate( 5, sub {
+	my $cloudCoreUrl = $prefs->get('cloudCoreUrl');
+	if(defined($cloudCoreUrl) && $cloudCoreUrl eq 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc') {
+		$prefs->set('https://api.ickstream.com/ickstream-cloud-core/jsonrpc');
+	}
+	my $clients = $prefs->get('players');
+	my $clientPrefs = {};
+	foreach my $clientId (values %$clients) {
+		if($prefs->get('player_'.$clientId)) {
+			if(!defined($clientPrefs->{$clientId})) {
+				$clientPrefs->{$clientId} = Slim::Utils::Prefs::Client->new($prefs,$clientId);
+			}
+			Slim::Utils::Misc::msg("Write playerConfiguration for $clientId");
+			$clientPrefs->{$clientId}->set('playerConfiguration',$prefs->get('player_'.$clientId));
+			my $playerConfiguration = $clientPrefs->{$clientId}->get('playerConfiguration');
+			my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'};
+			if(defined($cloudCoreUrl) && $cloudCoreUrl eq 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc') {
+				$playerConfiguration->{'cloudCoreUrl'} = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+				$clientPrefs->{$clientId}->set('playerConfiguration',$playerConfiguration);
+			}
+			$prefs->remove('player_'.$clientId);
+		}
+		if($prefs->get('playerstatus_'.$clientId)) {
+			if(!defined($clientPrefs->{$clientId})) {
+				$clientPrefs->{$clientId} = Slim::Utils::Prefs::Client->new($prefs,$clientId);
+			}
+			Slim::Utils::Misc::msg("Write playerStatus for $clientId");
+			$clientPrefs->{$clientId}->set('playerStatus',$prefs->get('playerstatus_'.$clientId));
+			$prefs->remove('playerstatus_'.$clientId);
+		}
+	}
+	1;
+});
 
 my $nextRequestedLocalServiceId = 2;
 
 sub initPlugin {
 	my $class = shift;
-
 	Slim::Player::ProtocolHandlers->registerHandler(
 		ickstream => 'Plugins::IckStreamPlugin::ProtocolHandler'
 	);
@@ -175,10 +207,10 @@ sub otherPlaylist {
 		@empty = ();
 		Plugins::IckStreamPlugin::PlaybackQueueManager::setOriginalPlaybackQueue($player,\@empty);
 		
-		my $playerStatus = $prefs->get('playerstatus_'.$player->id);
+		my $playerStatus = $prefs->client($player)->get('playerStatus');
 		$playerStatus->{'playbackQueuePos'} = undef;
 		$playerStatus->{'track'} = undef;
-		$prefs->set('playerstatus_'.$player->id,$playerStatus);
+		$prefs->client($player)->set('playerStatus',$playerStatus);
 		Plugins::IckStreamPlugin::PlayerService::sendPlaybackQueueChangedNotification($player);
 		Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
 	}

@@ -51,7 +51,7 @@ sub getApplicationId {
 	my $cbFailure = shift;
 
 	if($player) {
-		my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+		my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 		if(defined($playerConfiguration->{'applicationId'})) {
 			&{$cbSuccess}($playerConfiguration->{'applicationId'});
 			return;
@@ -170,9 +170,9 @@ sub _retrieveApplicationId {
 			my $jsonResponse = from_json($http->content);
 			if(defined($jsonResponse->{'applicationId'})) {
 				if($player) {
-					my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
+					my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 					$playerConfiguration->{'applicationId'} = $jsonResponse->{'applicationId'};
-					$prefs->set('player_'.$player->id,$playerConfiguration);
+					$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 				}else {
 					$prefs->set('applicationId',$jsonResponse->{'applicationId'});
 				}
