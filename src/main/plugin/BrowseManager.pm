@@ -69,7 +69,7 @@ sub _getCloudCoreUrl {
 	my $player = shift;
 	
 	my $playerConfiguration = $prefs->get('player_'.$player->id) || {};
-	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 	return $cloudCoreUrl;
 }
 

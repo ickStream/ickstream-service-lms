@@ -73,7 +73,7 @@ sub _refreshContentServices {
 	my $callback = shift;
 	
 	my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
-	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 	
 	if(defined($playerConfiguration->{'accessToken'})) {
 		$log->info("Retrieve content services from cloud");
