@@ -117,6 +117,9 @@ sub initializePlayer {
 			my $error = shift;
 
 			$log->warn("Failed to get application identity for ".$player->name().": \n".$error);
+			if(defined($callback)) {
+				&{$callback}();
+			}
 		});
 }
 
@@ -200,17 +203,21 @@ sub _getCloudCoreUrl {
 	my $cloudCoreUrl = undef;
 	if(defined($playerConfiguration->{'cloudCoreUrl'})) {
 		$cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'};
+		return $cloudCoreUrl;
 	}elsif(defined($prefs->get('cloudCoreUrl'))) {
 		$cloudCoreUrl = $prefs->get('cloudCoreUrl');
 		$playerConfiguration->{'cloudCoreUrl'} = $cloudCoreUrl;
 		$prefs->set('player_'.$player->id,$playerConfiguration);
+		return $cloudCoreUrl;
 	}else {
 		$cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
 		if(defined($playerConfiguration->{'cloudCoreUrl'})) {
 			$playerConfiguration->{'cloudCoreUrl'} = undef;
 			$prefs->set('player_'.$player->id,$playerConfiguration);
 		}
+		return $cloudCoreUrl;
 	}
+	
 }
 
 sub registerPlayer {
@@ -322,12 +329,25 @@ sub _performPlayerRegistration {
 			my $jsonResponse = from_json($http->content);
 			if(defined($jsonResponse->{'result'})) {
 				$log->debug("Successfully got device registration token, now registering device: ".$player->name());
-				Plugins::IckStreamPlugin::PlayerService::registerPlayer($player,$jsonResponse->{'result'});
+				Plugins::IckStreamPlugin::PlayerService::registerPlayer($player,$jsonResponse->{'result'},sub {
+						$log->info("Successfully registered player: ".$player->name());
+						Plugins::IckStreamPlugin::BrowseManager::init($player);
+						if(defined($callback)) {
+							&{$callback}();
+						}
+					},
+					sub {
+						my $error = shift;
+						$log->warn("Player registration error: ".$player->name().": $error");
+						if(defined($callback)) {
+							&{$callback}();
+						}
+					});
 			}else {
 				$log->warn("Failed to create device registration token for: ".$player->name());
-			}
-			if(defined($callback)) {
-				&{$callback}();
+				if(defined($callback)) {
+					&{$callback}();
+				}
 			}
 				
 		},

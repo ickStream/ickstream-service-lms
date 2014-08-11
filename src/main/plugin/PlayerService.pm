@@ -165,6 +165,8 @@ sub setPlayerConfiguration {
 sub registerPlayer {
 	my $client = shift;
 	my $deviceRegistrationToken = shift;
+	my $successCb = shift;
+	my $failureCb = shift;
 	
     my $playerConfiguration = $prefs->get('player_'.$client->id) || {};
 	$playerConfiguration->{'accessToken'} = undef;
@@ -190,16 +192,26 @@ sub registerPlayer {
 						$playerConfiguration = $prefs->get('player_'.$client->id) || {};
 						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
 						$prefs->set('player_'.$client->id,$playerConfiguration);
+						sendPlayerStatusChangedNotification($client);
+						if($successCb) {
+							&{$successCb}($client);
+						}
 					}else {
-						$log->warn("Failed to register player in cloud: ".Dumper($jsonResponse));
+						$log->warn("Failed to register player ".$client->name()." in cloud: ".Dumper($jsonResponse));
+						sendPlayerStatusChangedNotification($client);
+						if($failureCb) {
+							&{$failureCb}("Failed to register player ".$client->name()." in cloud: ".$jsonResponse->{'error'}->{'message'});
+						}
 					}
-					sendPlayerStatusChangedNotification($client);
 				},
 				sub {
 					my $http = shift;
 					my $error = shift;
-					$log->warn("Failed to register player in cloud: ".$error);
+					$log->warn("Failed to register player ".$client->name()."in cloud: ".$error);
 					sendPlayerStatusChangedNotification($client);
+					if($failureCb) {
+						&{$failureCb}("Failed to register player ".$client->name()." in cloud: ".$error);
+					}
 				},
 				$httpParams
 			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$deviceRegistrationToken,to_json({
@@ -217,6 +229,9 @@ sub registerPlayer {
 			my $error = shift;
 			$log->warn("Failed to get an application identity for ".$client->name().": $error");
 			sendPlayerStatusChangedNotification($client);
+			if($failureCb) {
+				&{$failureCb}("Failed to get an application identity for ".$client->name().": $error");
+			}
 		});
 }
 sub getPlayerConfiguration {

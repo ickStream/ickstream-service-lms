@@ -118,9 +118,9 @@ sub handler {
 
 	saveConfirmedLicenses($params);	
 	
-	getApplicationIdForLMS(
+	getUnconfirmedLicenses(
 		sub {
-			getUnconfirmedLicenses(
+			getApplicationIdForLMS(
 				sub {
 					getUserInformation(
 						sub {
@@ -440,7 +440,7 @@ sub handleAuthenticationFinished {
 				if(defined($jsonResponse->{'access_token'})) {
 					$log->info("Successfully authenticated user");
 					
-					$log->info("Register LMS as controller device");
+					$log->info("Generate UUID for controller device");
 					my $uuid = $prefs->get('controller_uuid');
 					if(!defined($uuid)) {
 						$uuid = uc(UUID::Tiny::create_UUID_as_string( UUID::Tiny::UUID_V4() ));
@@ -452,11 +452,11 @@ sub handleAuthenticationFinished {
 					my $output = Slim::Web::HTTP::filltemplatefile('plugins/IckStreamPlugin/settings/authenticationSuccess.html', $params);
 					my @players = Slim::Player::Client::clients();
 					foreach my $player (@players) {
-						if(Plugins::IckStreamPlugin::isLicenseConfirmed($player)) {
+						if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
 							if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
 								$log->debug("Initializing player: ".$player->name());
 								Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player, sub {
-										Plugins::IckStreamPlugin::BrowseManager::init($player);
+										$log->debug("Initialization finished for: ".$player->name());
 									});
 							}
 						}
