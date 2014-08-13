@@ -634,7 +634,11 @@ sub getProtocolDescription2 {
 					'allMusic:searchForAlbums' => {
 						'parameters' => 
 							['contextId','type','search']
-					}
+					},
+					'allMusic:albumsByArtist' => {
+						'parameters' => 
+							['contextId','type','artistId']
+					},
 				},
 				'playlist' => {
 					'allMusic:searchForPlaylists' => {
@@ -643,9 +647,17 @@ sub getProtocolDescription2 {
 					}
 				},
 				'track' => {
-					'allMusic:searchForTrack' => {
+					'allMusic:searchForTracks' => {
 						'parameters' => 
 							['contextId','type','search']
+					},
+					'allMusic:tracksInPlaylist' => {
+						'parameters' => 
+							['contextId','type','playlistId']
+					},
+					'allMusic:tracksOnAlbum' => {
+						'parameters' => 
+							['contextId','type','albumId']
 					}
 				}
 			}
