@@ -53,6 +53,7 @@ use Plugins::IckStreamPlugin::PlayerServer;
 use Plugins::IckStreamPlugin::PlayerService;
 use Plugins::IckStreamPlugin::BrowseManager;
 use Plugins::IckStreamPlugin::ProtocolHandler;
+use Plugins::IckStreamPlugin::LocalProtocolHandler;
 use Plugins::IckStreamPlugin::PlayerManager;
 use Plugins::IckStreamPlugin::LicenseManager;
 
@@ -122,6 +123,9 @@ sub initPlugin {
 	my $class = shift;
 	Slim::Player::ProtocolHandlers->registerHandler(
 		ickstream => 'Plugins::IckStreamPlugin::ProtocolHandler'
+	);
+	Slim::Player::ProtocolHandlers->registerHandler(
+		ickstreamlocal => 'Plugins::IckStreamPlugin::LocalProtocolHandler'
 	);
 
 	my $self = $class->SUPER::initPlugin(

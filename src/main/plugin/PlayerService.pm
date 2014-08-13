@@ -367,11 +367,11 @@ sub refreshCurrentPlaylist {
 		$log->debug(Dumper($actualTrack));
 		
 		my $song = Slim::Player::Playlist::song($client);
-		$log->debug('ickStream Playlist:  ickstream://'.$actualTrack->{'id'}) if(defined($actualTrack));
+		$log->debug('ickStream Playlist:  '._getProtocolHandler($actualTrack->{'id'}).'://'.$actualTrack->{'id'}) if(defined($actualTrack));
 		$log->debug('Squeezebox Playlist: '.$song->url) if(defined($song));
 		
 		
-		if(!defined($song) || !defined($actualTrack) || $song->url ne 'ickstream://'.$actualTrack->{'id'}) {
+		if(!defined($song) || !defined($actualTrack) || $song->url ne _getProtocolHandler($actualTrack->{'id'}).'://'.$actualTrack->{'id'}) {
 			$log->info("Current song doesn't match current playlist, replacing current playlist");
 			my $request = Slim::Control::Request::executeRequest($client,['playlist','clear']);
         	$request->source('PLUGIN_ICKSTREAM');
@@ -380,7 +380,7 @@ sub refreshCurrentPlaylist {
 			if($playbackQueuePos>0) {
 				$track = @{$playbackQueue}[$playbackQueuePos-1];
 				$log->info("Inserting ".$track->{'id'}."(".$track->{'text'}.") "." before current position");
-				$request = Slim::Control::Request::executeRequest($client,['playlist','add','ickstream://'.$track->{'id'}]);
+				$request = Slim::Control::Request::executeRequest($client,['playlist','add',_getProtocolHandler($track->{'id'}).'://'.$track->{'id'}]);
 	        	$request->source('PLUGIN_ICKSTREAM');
 				$songIndex = 1;
 				$currentPlaylistWindowOffset->{$client->id} = $playbackQueuePos - 1;
@@ -392,7 +392,7 @@ sub refreshCurrentPlaylist {
 					$track = @{$playbackQueue}[$playbackQueuePos+$i];
 					
 					$log->info("Adding ".$track->{'id'}."(".$track->{'text'}.") "." to playlist");
-					$request = Slim::Control::Request::executeRequest($client,['playlist','add','ickstream://'.$track->{'id'}]);
+					$request = Slim::Control::Request::executeRequest($client,['playlist','add',_getProtocolHandler($track->{'id'}).'://'.$track->{'id'}]);
 		        	$request->source('PLUGIN_ICKSTREAM');
 				}
 			}
@@ -421,12 +421,12 @@ sub refreshCurrentPlaylist {
 				my $previousSong = Slim::Player::Playlist::song($client,0);
 				if($playbackQueuePos>0) {
 					my $previousTrack = @{$playbackQueue}[$playbackQueuePos-1];
-					if(!defined($previousSong) || $previousSong->url ne 'ickstream://'.$previousTrack->{'id'}) {
+					if(!defined($previousSong) || $previousSong->url ne _getProtocolHandler($previousTrack->{'id'}).'://'.$previousTrack->{'id'}) {
 						$log->info("Deleting song before current position");
 						my $request = Slim::Control::Request::executeRequest($client,['playlist','delete',0]);
 			        	$request->source('PLUGIN_ICKSTREAM');
 						$log->info("Inserting ".$previousTrack->{'id'}."(".$previousTrack->{'text'}.") "." before current position");
-						$request = Slim::Control::Request::executeRequest($client,['playlist','insert','ickstream://'.$previousTrack->{'id'}]);
+						$request = Slim::Control::Request::executeRequest($client,['playlist','insert',_getProtocolHandler($previousTrack->{'id'}).'://'.$previousTrack->{'id'}]);
 			        	$request->source('PLUGIN_ICKSTREAM');
 						$request = Slim::Control::Request::executeRequest($client,['playlist','move', 1, 0]);
 			        	$request->source('PLUGIN_ICKSTREAM');
@@ -442,7 +442,7 @@ sub refreshCurrentPlaylist {
 				my $track = @{$playbackQueue}[$playbackQueuePos-1];
 				
 				$log->info("Inserting ".$track->{'id'}."(".$track->{'text'}.") "." before current position");
-				my $request = Slim::Control::Request::executeRequest($client,['playlist','insert','ickstream://'.$track->{'id'}]);
+				my $request = Slim::Control::Request::executeRequest($client,['playlist','insert',_getProtocolHandler($track->{'id'}).'://'.$track->{'id'}]);
 	        	$request->source('PLUGIN_ICKSTREAM');
 				$request = Slim::Control::Request::executeRequest($client,['playlist','move', 1, 0]);
 	        	$request->source('PLUGIN_ICKSTREAM');
@@ -450,12 +450,12 @@ sub refreshCurrentPlaylist {
 			}elsif($songIndex == 1 && $playbackQueuePos>0) {
 				my $previousSong = Slim::Player::Playlist::song($client,0);
 				my $previousTrack = @{$playbackQueue}[$playbackQueuePos-1];
-				if(!defined($previousSong) || $previousSong->url ne 'ickstream://'.$previousTrack->{'id'}) {
+				if(!defined($previousSong) || $previousSong->url ne _getProtocolHandler($previousTrack->{'id'}).'://'.$previousTrack->{'id'}) {
 					$log->info("Deleting song before current position");
 					my $request = Slim::Control::Request::executeRequest($client,['playlist','delete',0]);
 		        	$request->source('PLUGIN_ICKSTREAM');
 					$log->info("Inserting ".$previousTrack->{'id'}."(".$previousTrack->{'text'}.") "." before current position");
-					$request = Slim::Control::Request::executeRequest($client,['playlist','insert','ickstream://'.$previousTrack->{'id'}]);
+					$request = Slim::Control::Request::executeRequest($client,['playlist','insert',_getProtocolHandler($previousTrack->{'id'}).'://'.$previousTrack->{'id'}]);
 		        	$request->source('PLUGIN_ICKSTREAM');
 					$request = Slim::Control::Request::executeRequest($client,['playlist','move', 1, 0]);
 		        	$request->source('PLUGIN_ICKSTREAM');
@@ -469,15 +469,15 @@ sub refreshCurrentPlaylist {
 					my $song = undef;
 					do {
 						$song = Slim::Player::Playlist::song($client, $songIndex+$i);
-						if(defined($song) && ($song->url ne 'ickstream://'.$track->{'id'})) {
+						if(defined($song) && ($song->url ne _getProtocolHandler($track->{'id'}).'://'.$track->{'id'})) {
 							$log->info("Deleting song after current position: ".$song->url());
 							my $request = Slim::Control::Request::executeRequest($client,['playlist','delete',$songIndex+$i]);
 				        	$request->source('PLUGIN_ICKSTREAM');
 						}
-					} while (defined($song) && ($song->url ne 'ickstream://'.$track->{'id'}));
+					} while (defined($song) && ($song->url ne _getProtocolHandler($track->{'id'}).'://'.$track->{'id'}));
 					if(!defined($song)) {
 						$log->info("Adding ".$track->{'id'}."(".$track->{'text'}.") "." to playlist");
-						my $request = Slim::Control::Request::executeRequest($client,['playlist','add','ickstream://'.$track->{'id'}]);
+						my $request = Slim::Control::Request::executeRequest($client,['playlist','add',_getProtocolHandler($track->{'id'}).'://'.$track->{'id'}]);
 			        	$request->source('PLUGIN_ICKSTREAM');
 					}
 				}
@@ -498,7 +498,18 @@ sub refreshCurrentPlaylist {
    	return $notification;
 }		   	
 
+sub _getProtocolHandler {
+	my $id = shift;
+	
+	my $protocolHandler = 'ickstream';
+	if($id =~ /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}):lms:/) {
+		if($1 eq $prefs->get('uuid')) {
+			$protocolHandler = 'ickstreamlocal';
+		}
+	}
+	return $protocolHandler;
 
+}
 sub getSeekPosition {
         my $context = shift;
         my $client = shift;
