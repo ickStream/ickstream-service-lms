@@ -364,7 +364,7 @@ sub refreshCurrentPlaylist {
 				$actualTrack = @{$playbackQueue}[$currentPlaylistWindowOffset->{$client->id}+$songIndex];
 			}
 		}
-		$log->debug(Dumper($actualTrack));
+		#$log->debug(Dumper($actualTrack));
 		
 		my $song = Slim::Player::Playlist::song($client);
 		$log->debug('ickStream Playlist:  '._getProtocolHandler($actualTrack->{'id'}).'://'.$actualTrack->{'id'}) if(defined($actualTrack));
