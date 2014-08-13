@@ -832,7 +832,7 @@ sub processServiceChildRequestMenu {
 				}
 			}else {
 	        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
-				$menu->{'play'} = 'ickstream://'.$item->{'id'};
+				$menu->{'play'} = _getProtocolHandler($item->{'id'}).'://'.$item->{'id'};
 				$menu->{'type'} = 'audio';
 				$menu->{'on_select'} = 'play';
 				$menu->{'playall'} = 1;
@@ -1042,7 +1042,7 @@ sub processServiceItemMenu {
 				}
 			}else {
 	        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
-				$menu->{'play'} = 'ickstream://'.$item->{'id'};
+				$menu->{'play'} = _getProtocolHandler($item->{'id'}).'://'.$item->{'id'};
 				$menu->{'type'} = 'audio';
 				$menu->{'on_select'} => 'play';
 				$menu->{'playall'} => 1;
@@ -1095,6 +1095,19 @@ sub getParameterFromParent {
 		return getParameterFromParent($parameter,$parent->{'parent'});
 	}
 	return undef;
+}
+
+sub _getProtocolHandler {
+	my $id = shift;
+	
+	my $protocolHandler = 'ickstream';
+	if($id =~ /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}):lms:/) {
+		if($1 eq $prefs->get('uuid')) {
+			$protocolHandler = 'ickstreamlocal';
+		}
+	}
+	return $protocolHandler;
+
 }
 
 1;
