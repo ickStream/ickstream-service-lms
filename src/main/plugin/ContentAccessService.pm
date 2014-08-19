@@ -1243,7 +1243,7 @@ sub findAlbums {
 				push @whereSearchDirectives,'albums.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
-		}elsif ref $searchStrings eq 'ARRAY') {
+		}elsif( ref $searchStrings eq 'ARRAY') {
 			for my $search (@$searchStrings) {
 				push @whereSearchDirectives,'albums.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
@@ -1456,7 +1456,7 @@ sub findArtists {
 				push @whereSearchDirectives,'contributors.namesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
-		}elsif ref $searchStrings eq 'ARRAY') {
+		}elsif( ref $searchStrings eq 'ARRAY') {
 			for my $search (@$searchStrings) {
 				push @whereSearchDirectives,'contributors.namesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
@@ -1563,7 +1563,7 @@ sub findPlaylists {
 				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
-		}elsif ref $searchStrings eq 'ARRAY') {
+		}elsif( ref $searchStrings eq 'ARRAY') {
 			for my $search (@$searchStrings) {
 				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
@@ -1769,7 +1769,7 @@ sub findTracks {
 				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
-		}elsif ref $searchStrings eq 'ARRAY') {
+		}elsif( ref $searchStrings eq 'ARRAY') {
 			for my $search (@$searchStrings) {
 				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
