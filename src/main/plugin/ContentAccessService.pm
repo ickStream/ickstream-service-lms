@@ -1243,6 +1243,11 @@ sub findAlbums {
 				push @whereSearchDirectives,'albums.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
+		}elsif ref $searchStrings eq 'ARRAY') {
+			for my $search (@$searchStrings) {
+				push @whereSearchDirectives,'albums.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
 		}else {
 				push @whereSearchDirectives,'albums.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$searchStrings;
@@ -1451,6 +1456,11 @@ sub findArtists {
 				push @whereSearchDirectives,'contributors.namesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
+		}elsif ref $searchStrings eq 'ARRAY') {
+			for my $search (@$searchStrings) {
+				push @whereSearchDirectives,'contributors.namesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
 		}else {
 				push @whereSearchDirectives,'contributors.namesearch LIKE ?';
 				push @whereSearchDirectiveValues,$searchStrings;
@@ -1550,6 +1560,11 @@ sub findPlaylists {
 		my $searchStrings = Slim::Utils::Text::searchStringSplit($reqParams->{'search'});
 		if( ref $searchStrings->[0] eq 'ARRAY') {
 			for my $search (@{$searchStrings->[0]}) {
+				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
+		}elsif ref $searchStrings eq 'ARRAY') {
+			for my $search (@$searchStrings) {
 				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
@@ -1751,6 +1766,11 @@ sub findTracks {
 		my $searchStrings = Slim::Utils::Text::searchStringSplit($reqParams->{'search'});
 		if( ref $searchStrings->[0] eq 'ARRAY') {
 			for my $search (@{$searchStrings->[0]}) {
+				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
+				push @whereSearchDirectiveValues,$search;
+			}
+		}elsif ref $searchStrings eq 'ARRAY') {
+			for my $search (@$searchStrings) {
 				push @whereSearchDirectives,'tracks.titlesearch LIKE ?';
 				push @whereSearchDirectiveValues,$search;
 			}
