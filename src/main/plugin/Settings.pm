@@ -62,6 +62,11 @@ sub new {
         }else {
         	$log->debug("Recent version of IO::Socket::SSL not installed, skipping possibility to disable SSL peer verification");
         }
+        my @handlers = Slim::Player::ProtocolHandlers->registeredHandlers();
+        if(!grep( /^https$/, @handlers )) {
+        	$log->debug("Registering https handler");
+        	Slim::Player::ProtocolHandlers->registerHandler("https",qw(Slim::Player::Protocols::HTTP));
+        }
 }
 
 sub name {
@@ -310,12 +315,14 @@ sub getUserInformation {
 							$params->{'authenticationName'} = $jsonResponse->{'result'}->{'name'};
 							&{$callback}();
 						}else {
-							$log->debug("Unable to get logged in user");
+							$log->warn("Unable to get logged in user");
 							&{$callback}();
 						}
 					},
 					sub {
-						$log->debug("Error when getting logged in user");
+						my $http = shift;
+						my $error = shift;
+						$log->warn("Error when getting logged in user: $error");
 						&{$callback}();
 					},
 					$httpParams
@@ -333,7 +340,8 @@ sub getUserInformation {
 			}
 		},
 		sub {
-			$log->debug("Not logged in");
+			my $error = shift;
+			$log->warn("Failed to get application identity: ".$error);
 			&{$callback}();
 		})
 }
