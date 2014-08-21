@@ -66,7 +66,11 @@ sub playerChange {
 			$log->info("Disconnected player: ".$player->name());
 			uninitializePlayer($player);
 		}else {
-			$log->debug("Unhandled player event ".$request->getRequestString()." for ".$player->name());
+			if(defined($player)) {
+				$log->debug("Unhandled player event ".$request->getRequestString()." for ".$player->name());
+			}else {
+				$log->debug("Unhandled player event ".$request->getRequestString());
+			}
 		}
 }
 
@@ -167,19 +171,19 @@ sub updateAddressOrRegisterPlayer {
 		}
 		my $uuid = $playerConfiguration->{'uuid'};
 		my $serverIP = Slim::Utils::IPDetect::IP();
-		$log->debug("Trying to set player address in cloud to verify if its access token works through: ".$cloudCoreUrl);
+		$log->info("Trying to set player address in cloud for ".$player->name()." to verify if its access token works through: ".$cloudCoreUrl);
 		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
 				# Do nothing, player already registered
-				$log->debug("Player ".$player->name()." is already registered, successfully updated address in cloud");
+				$log->info("Player ".$player->name()." is already registered, successfully updated address in cloud");
 				Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
 				if(defined($callback)) {
 					&{$callback}();
 				}
 			},
 			sub {
-				$log->warn("Failed to update address in cloud, player needs to be re-registered");
+				$log->warn("Failed to update address in cloud, player ".$player->name()." needs to be re-registered");
 				registerPlayer($player,$callback);
 			},
 			$httpParams
@@ -248,7 +252,7 @@ sub _performPlayerInitialization {
 	if(defined($player) && ($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio'))) {
 		if ( !defined($initializedPlayers->{$player->id}) ) {
 
-			$log->debug("Initializing player: ".$player->name());
+			$log->info("Initializing player: ".$player->name());
 			my $params = { timeout => 35 };
 			my $uuid = undef;
 			my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
@@ -283,7 +287,7 @@ sub _performPlayerInitialization {
 			}
 
 		}else {
-			$log->debug("Player ".$player->name()." already initialized");
+			$log->info("Player ".$player->name()." already initialized");
 			if(defined($callback)) {
 				&{$callback}();
 			}
@@ -321,7 +325,7 @@ sub _performPlayerRegistration {
 		return;
 	}
 
-	$log->debug("Requesting device registration token from: ".$cloudCoreUrl);
+	$log->info("Requesting device registration token from: ".$cloudCoreUrl);
 	my $httpParams = { timeout => 35 };
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {

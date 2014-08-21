@@ -177,6 +177,7 @@ sub registerPlayer {
 		$uuid = 'Squeezebox_'.$client->macaddress;
 	}
 	
+	$log->info("Registering ".$client->name()." in cloud");
 	Plugins::IckStreamPlugin::LicenseManager::getApplicationId($client,
 		sub {
 			my $applicationId = shift;
@@ -188,7 +189,7 @@ sub registerPlayer {
 					my $http = shift;
 					my $jsonResponse = from_json($http->content);
 					if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'accessToken'}) {
-						$log->info("Succeessfully registered player in cloud");
+						$log->info("Succeessfully registered player ".$client->name()." in cloud");
 						$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
 						$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
@@ -1479,7 +1480,7 @@ sub sendPlayerStatusChangedNotification {
 	}
 	$notification->{'params'}->{'playing'} = $playing;
 
-    if($log->is_debug) { my $val = dclone($notification);$log->debug("notification: ".Data::Dump::dump($val)); }
+    if($log->is_info) { my $val = dclone($notification);$log->info("notification: ".Data::Dump::dump($val)); }
 
 	if(!main::ISWINDOWS) {
 	    my $serverIP = Slim::Utils::IPDetect::IP();
@@ -1579,7 +1580,7 @@ sub handleJSONRPC {
                 return;
         }
 
-        $log->is_info && $log->info("POST data: [$input]");
+        $log->is_debug && $log->debug("POST data: [$input]");
 
         # create a hash to store our context
         my $context = {};
@@ -1597,7 +1598,7 @@ sub handleJSONRPC {
 				$httpParams->{$name} = $value;
 			}
 		}
-		$log->is_info && $log->info( "Device information: " . Data::Dump::dump($httpParams) );
+		$log->is_debug && $log->debug( "Device information: " . Data::Dump::dump($httpParams) );
   
 		my $procedure = undef;
 		eval {
