@@ -395,14 +395,18 @@ sub handleForcedPlayerRegistration {
 		$log->debug("Found ".scalar(@players)." players");
 		foreach my $player (@players) {
 			if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
-				if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
-					$log->debug("Trying to initialize ".$player->name());
+				my $playerConfiguration = $prefs->client($player)->get('playerConfiguration');
+				if(defined($playerConfiguration->{'accessToken'})) {
+					$log->warn("Unregister ".$player->name());
+					delete $playerConfiguration->{'accessToken'};
+					$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
+				}
+				if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player) && !main::ISWINDOWS) {
+					$log->warn("Request initialization for ".$player->name());
 					Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
-				}elsif(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
-					$log->debug("Trying to register ".$player->name());
-					Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player);
 				}else {
-					$log->debug($player->name()." is already initialized and registered");
+					$log->warn("Request registration for ".$player->name());
+					Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player);
 				}
 			}
 		}
