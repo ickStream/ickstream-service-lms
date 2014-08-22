@@ -36,13 +36,6 @@
 
         [% END %]
 
-        [% WRAPPER setting title="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS" desc="PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS_DESC" %]
-                <select name="pref_squeezePlayPlayersEnabled">
-                        <option value="1" [% IF prefs.squeezePlayPlayersEnabled %]selected[% END %]>[% "ENABLED" | string %]</option>
-                        <option value="0" [% IF NOT prefs.squeezePlayPlayersEnabled %]selected[% END %]>[% "DISABLED" | string %]</option>
-                </select>
-        [% END %]
-
 		[% IF unconfirmedLicenses %]
 	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES" desc="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES_DESC" %]
 	        	<div style="color:red;font-weight:bold;">[% "PLUGIN_ICKSTREAM_UNCONFIRMED_TERMS_OF_USE" | string %]:<br/></div>

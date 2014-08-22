@@ -78,7 +78,7 @@ sub page {
 }
 
 sub prefs {
-	return ($prefs, 'orderAlbumsForArtist', 'daemonPort', 'squeezePlayPlayersEnabled', 'disablePeerVerification');
+	return ($prefs, 'orderAlbumsForArtist', 'daemonPort', 'disablePeerVerification');
 }
 
 sub handler {
@@ -103,15 +103,6 @@ sub handler {
 			}
 		}
 	}
-	if ($params->{'saveSettings'}) {
-		if($params->{'pref_squeezePlayPlayersEnabled'} && !$prefs->get('squeezePlayPlayersEnabled')) {
-			$log->info('Enabling Squeezebox Touch/Radio players');
-			$params->{'enabledSqueezePlayPlayers'} = 1;
-		}elsif(!$params->{'pref_squeezePlayPlayersEnabled'} && $prefs->get('squeezePlayPlayersEnabled')) {
-			$log->info('Disabling Squeezebox Touch/Radio players');
-			$params->{'disabledSqueezePlayPlayers'} = 1;
-		}	
-	}
 	if ($params->{'saveSettings'} && $peerVerification) {
 		savePeerVerificationSetting($params);
 	}
@@ -133,7 +124,7 @@ sub handler {
 							}
 							getInitializedPlayers($params);
 							getRegisteredPlayers($params);
-							enableDisableSqueezePlayPlayers($params);
+							handleForcedPlayerRegistration($params);
 							my $result = $class->SUPER::handler($client, $params);
 							&{$callback}($client,$params,$result,$httpClient,$response);
 						},
@@ -396,44 +387,22 @@ sub getRegisteredPlayers {
 	}
 }
 
-sub enableDisableSqueezePlayPlayers {
+sub handleForcedPlayerRegistration {
 	my $params = shift;
 	
-	if($params->{'enabledSqueezePlayPlayers'}) {
+	if($params->{'register_players'}) {
 		my @players = Slim::Player::Client::clients();
 		$log->debug("Found ".scalar(@players)." players");
 		foreach my $player (@players) {
 			if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
-				if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
+				if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
 					$log->debug("Trying to initialize ".$player->name());
 					Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
-				}
-			}
-		}
-	}elsif($params->{'disabledSqueezePlayPlayers'}) {
-		my @players = Slim::Player::Client::clients();
-		$log->debug("Found ".scalar(@players)." players");
-		foreach my $player (@players) {
-			if($player->modelName() eq 'Squeezebox Touch' || $player->modelName() eq 'Squeezebox Radio') {
-				$log->debug("Uninitializing ".$player->name());
-				Plugins::IckStreamPlugin::PlayerManager::uninitializePlayer($player);
-			}
-		}
-	}elsif($params->{'register_players'}) {
-		my @players = Slim::Player::Client::clients();
-		$log->debug("Found ".scalar(@players)." players");
-		foreach my $player (@players) {
-			if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
-				if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
-					if(!Plugins::IckStreamPlugin::PlayerManager::isPlayerInitialized($player)) {
-						$log->debug("Trying to initialize ".$player->name());
-						Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player);
-					}elsif(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
-						$log->debug("Trying to register ".$player->name());
-						Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player);
-					}else {
-						$log->debug($player->name()." is already initialized and registered");
-					}
+				}elsif(!Plugins::IckStreamPlugin::PlayerManager::isPlayerRegistered($player)) {
+					$log->debug("Trying to register ".$player->name());
+					Plugins::IckStreamPlugin::PlayerManager::updateAddressOrRegisterPlayer($player);
+				}else {
+					$log->debug($player->name()." is already initialized and registered");
 				}
 			}
 		}
@@ -473,12 +442,10 @@ sub handleAuthenticationFinished {
 					my @players = Slim::Player::Client::clients();
 					foreach my $player (@players) {
 						if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
-							if($prefs->get('squeezePlayPlayersEnabled') || ($player->modelName() ne 'Squeezebox Touch' && $player->modelName() ne 'Squeezebox Radio')) {
-								$log->debug("Initializing player: ".$player->name());
-								Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player, sub {
-										$log->debug("Initialization finished for: ".$player->name());
-									});
-							}
+							$log->debug("Initializing player: ".$player->name());
+							Plugins::IckStreamPlugin::PlayerManager::initializePlayer($player, sub {
+									$log->debug("Initialization finished for: ".$player->name());
+								});
 						}
 					}
 					&{$callback}($client,$params,$output,$httpClient,$response);

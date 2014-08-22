@@ -14,7 +14,7 @@ PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST
 	EN	Sort albums for artist
 
 PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_DESC
-	EN	Sort albums for artist
+	EN	Sort albums for artist when listed in ickStream based remote controls
 	
 PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_TITLE
 	EN	by title
@@ -108,12 +108,6 @@ PLUGIN_ICKSTREAM_PLAYERS_REFRESH
 
 PLUGIN_ICKSTREAM_CLOSE_WINDOW
 	EN	Close
-
-PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS
-	EN	Support for Squeezebox Touch and Squeezebox Radio
-
-PLUGIN_ICKSTREAM_SQUEEZEPLAY_PLAYERS_DESC
-	EN	Enable support for Squeezebox Touch and Squeezebox Radio based players to be used as ickStream players. On these player types it's normally possible to install the ickStream applet directly on the Squeezebox and make it possible to use them without Logitech Media Server.
 
 PLUGIN_ICKSTREAM_PLAYERS_FORCE_REGISTER
 	EN	Force player registration
