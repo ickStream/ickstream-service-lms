@@ -77,7 +77,7 @@ PLUGIN_ICKSTREAM_CLOUD_ACCOUNT_MANAGEMENT
 	EN	Add or remove services from your ickStream Music Platform account
 
 PLUGIN_ICKSTREAM_PLAYERS
-	EN	Remote controllable players
+	EN	Remotely controllable players
 
 PLUGIN_ICKSTREAM_PLAYERS_DESC
 	EN	Squeezeboxes which haven been configured to be used with ickStream remote controls
