@@ -127,12 +127,30 @@ $prefs->migrate( 7, sub {
 	1;
 });
 
+$prefs->migrate( 8, sub {
+	if(defined($prefs->get('applicationId'))) {
+		$prefs->remove('applicationId');
+	}
+	1;
+});
+
 $prefs->migrateClient(1, sub {
 	my ($clientPrefs, $client) = @_;
 	
 	if(defined($clientPrefs->get('playerConfiguration')) && defined($clientPrefs->get('playerConfiguration')->{'applicationId'})) {
 		my $playerConfiguration = $clientPrefs->get('playerConfiguration');
 		$playerConfiguration->{'applicationId'} = Crypt::Tea::encrypt($playerConfiguration->{'applicationId'},$serverPrefs->get('server_uuid'));
+		$clientPrefs->set('playerConfiguration', $playerConfiguration);
+	}
+	1;
+});
+
+$prefs->migrateClient(2, sub {
+	my ($clientPrefs, $client) = @_;
+	
+	if(defined($clientPrefs->get('playerConfiguration')) && defined($clientPrefs->get('playerConfiguration')->{'applicationId'})) {
+		my $playerConfiguration = $clientPrefs->get('playerConfiguration');
+		delete $playerConfiguration->{'applicationId'};
 		$clientPrefs->set('playerConfiguration', $playerConfiguration);
 	}
 	1;
