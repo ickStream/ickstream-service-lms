@@ -120,6 +120,23 @@ $prefs->migrate( 6, sub {
 	$prefs->remove('squeezePlayPlayersEnabled');
 	1;
 });
+$prefs->migrate( 7, sub {
+	if(defined($prefs->get('applicationId'))) {
+		$prefs->set('applicationId', Crypt::Tea::encrypt($prefs->get('applicationId'),$serverPrefs->get('server_uuid')));
+	}
+	1;
+});
+
+$prefs->migrateClient(1, sub {
+	my ($clientPrefs, $client) = @_;
+	
+	if(defined($clientPrefs->get('playerConfiguration')) && defined($clientPrefs->get('playerConfiguration')->{'applicationId'})) {
+		my $playerConfiguration = $clientPrefs->get('playerConfiguration');
+		$playerConfiguration->{'applicationId'} = Crypt::Tea::encrypt($playerConfiguration->{'applicationId'},$serverPrefs->get('server_uuid'));
+		$clientPrefs->set('playerConfiguration', $playerConfiguration);
+	}
+	1;
+});
 
 my $nextRequestedLocalServiceId = 2;
 

@@ -53,11 +53,11 @@ sub getApplicationId {
 	if($player) {
 		my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 		if(defined($playerConfiguration->{'applicationId'})) {
-			&{$cbSuccess}($playerConfiguration->{'applicationId'});
+			&{$cbSuccess}(Crypt::Tea::decrypt($playerConfiguration->{'applicationId'},$serverPrefs->get('server_uuid')));
 			return;
 		}
 	}elsif(defined($prefs->get('applicationId'))) {
-		my $applicationId = $prefs->get('applicationId');
+		my $applicationId = Crypt::Tea::decrypt($prefs->get('applicationId'),$serverPrefs->get('server_uuid'));
 		&{$cbSuccess}($applicationId);
 		return;
 	}
@@ -171,10 +171,10 @@ sub _retrieveApplicationId {
 			if(defined($jsonResponse->{'applicationId'})) {
 				if($player) {
 					my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
-					$playerConfiguration->{'applicationId'} = $jsonResponse->{'applicationId'};
+					$playerConfiguration->{'applicationId'} = Crypt::Tea::encrypt($jsonResponse->{'applicationId'},$serverPrefs->get('server_uuid'));
 					$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 				}else {
-					$prefs->set('applicationId',$jsonResponse->{'applicationId'});
+					$prefs->set('applicationId',Crypt::Tea::encrypt($jsonResponse->{'applicationId'},$serverPrefs->get('server_uuid')));
 				}
 				&{$cbSuccess}($jsonResponse->{'applicationId'});
 				return;
