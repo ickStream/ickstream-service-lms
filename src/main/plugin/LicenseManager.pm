@@ -65,7 +65,7 @@ sub getApplicationId {
 	_getLicenseMD5($player, 
 		sub {
 			my $md5 = shift;
-			_addLicense($player,$md5);
+			addLicenseIfConfirmed($player,$md5);
 			
 			if(isLicenseConfirmed($player, $md5)) {
 				_retrieveApplicationId($player,$md5,
@@ -98,7 +98,7 @@ sub getLicense {
 		sub {
 			my $md5 = shift;
 			my $licenseText = shift;
-			_addLicense($player,$md5);
+			addLicenseIfConfirmed($player,$md5);
 			&{$cbSuccess}($md5, $licenseText);
 		},
 		sub {
@@ -201,7 +201,7 @@ sub _retrieveApplicationId {
 			);
 }
 
-sub _addLicense {
+sub addLicenseIfConfirmed {
 	my $player = shift;
 	my $md5 = shift;
 	

@@ -91,7 +91,6 @@ sub handler {
 		$params->{'peerVerification'} = 1;
 	}
 
-
 	if ($params->{'saveSettings'} && $params->{'pref_password'}) {
 		$log->debug("Verifying password");
 		my $val = $params->{'pref_password'};
@@ -157,6 +156,7 @@ sub _getCloudCoreUrl {
 sub _getManageAccountUrl {
 	my $manageAccountUrl = _getCloudCoreUrl();
 	$manageAccountUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
+	$manageAccountUrl =~ s/^(https?:\/\/)api(.*)/\1cloud\2/;
 	return $manageAccountUrl;
 }
 
@@ -203,11 +203,19 @@ sub saveConfirmedLicenses {
 			my $playerModel = $1;
 			my $confirmedLicenseMD5 = $params->{$param};
 			my @players = Slim::Player::Client::clients();
-			foreach my $player (@players) {
-				if($player->model() eq $playerModel) {
-					Plugins::IckStreamPlugin::LicenseManager::confirmLicense($player,$confirmedLicenseMD5);
+			if($playerModel eq 'lms') {
+				Plugins::IckStreamPlugin::LicenseManager::confirmLicense(undef,$confirmedLicenseMD5);
+			}else {
+				foreach my $player (@players) {
+					if($player->model() eq $playerModel) {
+						Plugins::IckStreamPlugin::LicenseManager::confirmLicense($player,$confirmedLicenseMD5);
+					}
 				}
 			}
+			foreach my $player (@players) {
+				Plugins::IckStreamPlugin::LicenseManager::addLicenseIfConfirmed($player,$confirmedLicenseMD5); 
+			}
+			Plugins::IckStreamPlugin::LicenseManager::addLicenseIfConfirmed(undef,$confirmedLicenseMD5); 
 		}
 	}
 }
@@ -259,17 +267,21 @@ sub getUnconfirmedLicenses {
 				sub {
 					my $md5 = shift;
 
+					if(!defined($params->{'unconfirmedLicenses'})) {
+						$params->{'unconfirmedLicenses'} = {};
+					}
+					my $unconfirmedLicenses = $params->{'unconfirmedLicenses'};
+					if(!defined($unconfirmedLicenses->{$md5})) {
+						$unconfirmedLicenses->{$md5} = {};
+					}
 					if($player) {
-						if(!defined($params->{'unconfirmedLicenses'})) {
-							$params->{'unconfirmedLicenses'} = {};
-						}
-						my $unconfirmedLicenses = $params->{'unconfirmedLicenses'};
-						if(!defined($unconfirmedLicenses->{$md5})) {
-							$unconfirmedLicenses->{$md5} = {};
-						}
 						my $model = $player->model();
 						if(!defined($unconfirmedLicenses->{$md5}->{$model})) {
 							$unconfirmedLicenses->{$md5}->{$model} = $player->modelName();
+						}
+					}else {
+						if(!defined($unconfirmedLicenses->{$md5}->{"lms"})) {
+							$unconfirmedLicenses->{$md5}->{"lms"} = "Logitech Media Server";
 						}
 					}
 					

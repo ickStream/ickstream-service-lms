@@ -1,28 +1,30 @@
 [% PROCESS settings/header.html %]
 
-        [% WRAPPER setting title="PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST" desc="PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_DESC"%]
-                <select class="stdedit" name="pref_orderAlbumsForArtist" id="orderAlbumsForArtist">
-
-                        <option [% IF prefs.pref_orderAlbumsForArtist == 'by_title' %]selected [% END %]value="by_title">[% 'PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_TITLE' | string %]</option>
-                        <option [% IF prefs.pref_orderAlbumsForArtist == 'by_year_title' %]selected [% END %]value="by_year_title">[% 'PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_YEAR_TITLE' | string %]</option>
-                
-                </select>
-        [% END %]
-        
-
-		[% IF authorize %]
-	        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD" desc="PLUGIN_ICKSTREAM_LMS_PASSWORD_DESC" %]
-	                <input type="password" class="stdedit" name="pref_password" id="password" value="[% prefs.pref_password %]" size="40">
-	        [% END %]
+       	[% IF daemonSupported %]
+	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST" desc="PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_DESC"%]
+	                <select class="stdedit" name="pref_orderAlbumsForArtist" id="orderAlbumsForArtist">
 	
-	        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD_REPEAT" desc="" %]
-	                <input type="password" class="stdedit" name="pref_password_repeat" id="password" value="[% prefs.pref_password %]" size="40">
+	                        <option [% IF prefs.pref_orderAlbumsForArtist == 'by_title' %]selected [% END %]value="by_title">[% 'PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_TITLE' | string %]</option>
+	                        <option [% IF prefs.pref_orderAlbumsForArtist == 'by_year_title' %]selected [% END %]value="by_year_title">[% 'PLUGIN_ICKSTREAM_ORDER_ALBUMS_FOR_ARTIST_BY_YEAR_TITLE' | string %]</option>
+	                
+	                </select>
 	        [% END %]
-        [% END %]
-        
-        [% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT" desc="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT_DESC" %]
-                <input type="text" class="stdedit" name="pref_daemonPort" id="daemonPort" value="[% prefs.pref_daemonPort %]" size="5">
-        [% END %]
+	        
+	
+			[% IF authorize %]
+		        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD" desc="PLUGIN_ICKSTREAM_LMS_PASSWORD_DESC" %]
+		                <input type="password" class="stdedit" name="pref_password" id="password" value="[% prefs.pref_password %]" size="40">
+		        [% END %]
+		
+		        [% WRAPPER settingGroup title="PLUGIN_ICKSTREAM_LMS_PASSWORD_REPEAT" desc="" %]
+		                <input type="password" class="stdedit" name="pref_password_repeat" id="password" value="[% prefs.pref_password %]" size="40">
+		        [% END %]
+	        [% END %]
+	        
+	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT" desc="PLUGIN_ICKSTREAM_PLAYER_DAEMON_PORT_DESC" %]
+	                <input type="text" class="stdedit" name="pref_daemonPort" id="daemonPort" value="[% prefs.pref_daemonPort %]" size="5">
+	        [% END %]
+	    [% END %]
         
         [% IF peerVerification %]
        	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION" desc="PLUGIN_ICKSTREAM_SSL_PEER_VERIFICATION_DESC" %]
@@ -45,11 +47,17 @@
 	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES" desc="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES_DESC" %]
 	        	<div style="color:red;font-weight:bold;">[% "PLUGIN_ICKSTREAM_UNCONFIRMED_TERMS_OF_USE" | string %]:<br/></div>
 				[% FOREACH licenseKey = unconfirmedLicenses.keys.sort %]
+					[% firstModel = unconfirmedLicenses.$licenseKey.keys.0 %]
+					<input name="confirmed_license_[% firstModel %]" type="checkbox" value="[% licenseKey %]">&nbsp;&nbsp;&nbsp;
+					[% 	"PLUGIN_ICKSTREAM_APPROVE_LICENSE_FOR" | string %]:
+					[% first = 1 %]
 					[% FOREACH playerModel = unconfirmedLicenses.$licenseKey.keys.sort %]
-						<input name="confirmed_license_[% playerModel %]" type="checkbox" value="[% licenseKey %]">&nbsp;&nbsp;&nbsp;<A href="[% webroot %]plugins/IckStreamPlugin/license_[% playerModel %].txt" target="_blank">[% 	"PLUGIN_ICKSTREAM_APPROVE_LICENSE_FOR" | string %]: 
+						[% IF !first %], [% END %]
+						[% first = 0 %]
+						<A href="[% webroot %]plugins/IckStreamPlugin/license_[% playerModel %].txt" target="_blank">
 						[% unconfirmedLicenses.$licenseKey.$playerModel %]</A>
-						</input><BR/>
 					[% END %]
+					</input><BR/>
 				[% END %]
 	        [% END %]
 		[% END %]
@@ -68,14 +76,15 @@
 	            [% IF manageAccountUrl %]
 		            <BR/><BR/>
 		            <a target="_blank" href="[% manageAccountUrl %]">[% 'PLUGIN_ICKSTREAM_CLOUD_ACCOUNT_MANAGEMENT' | string %]</a>
-		        [% END %]
-		        <BR/><BR/>
-		        [% "PLUGIN_ICKSTREAM_CLOUD_LOGIN_REFRESH_MESSAGE" | string %]</a>
+		        [% ELSE %]
+			        <BR/><BR/>
+			        [% "PLUGIN_ICKSTREAM_CLOUD_LOGIN_REFRESH_MESSAGE" | string %]</a>
+			    [% END %]
 	        [% END %]
         [% END %]
         [% IF authenticationName %]
-        	[% IF daemonSupported %]
-		       	[% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYERS" desc="PLUGIN_ICKSTREAM_PLAYERS_DESC" %]
+	       	[% WRAPPER setting title="PLUGIN_ICKSTREAM_PLAYERS" desc="PLUGIN_ICKSTREAM_PLAYERS_DESC" %]
+	        	[% IF daemonSupported %]
 			        [% IF initializedPlayers %]
 						[% FOREACH player IN initializedPlayers %]
 							[% player.name %]<BR/>
@@ -85,7 +94,9 @@
 					[% END %]
 					<BR/>
 		            <input name="refresh_players" type="submit" class="stdclick" value="[% "PLUGIN_ICKSTREAM_PLAYERS_REFRESH" | string %]">
-				[% END %]
+		        [% ELSE %]
+					[% 'PLUGIN_ICKSTREAM_DAEMON_NOT_SUPPORTED' | string %]
+		        [% END %]
 			[% END %]
 	       	[% WRAPPER setting title="PLUGIN_ICKSTREAM_REGISTERED_PLAYERS" desc="PLUGIN_ICKSTREAM_REGISTERED_PLAYERS_DESC" %]
 		        [% IF registeredPlayers %]
@@ -93,7 +104,7 @@
 						[% player.name %]<BR/>
 					[% END %]
 				[% ELSE %]
-					[% 'PLUGIN_ICKSTREAM_PLAYERS_NONE' | string %]
+					[% 'PLUGIN_ICKSTREAM_PLAYERS_NONE_REGISTERED' | string %]
 				[% END %]
 				<BR/>
 	            <input name="refresh_players" type="submit" class="stdclick" value="[% "PLUGIN_ICKSTREAM_PLAYERS_REFRESH" | string %]">

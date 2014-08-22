@@ -53,7 +53,7 @@ PLUGIN_ICKSTREAM_PROTOCOL_HANDLER_DIRECT_STREAM_FAILED
 	EN	Streaming failed
 
 PLUGIN_ICKSTREAM_BROWSE_REQUIRES_CREDENTIALS
-	EN	Please login to ickStream Music Platform in Settings/Advanced/ickStream.
+	EN	Please login to ickStream Music Platform in Settings/Advanced/ickStream in LMS web interface
 
 PLUGIN_ICKSTREAM_BROWSE_ADD_SERVICES
 	EN	Please add some services to your ickStream account
@@ -82,14 +82,20 @@ PLUGIN_ICKSTREAM_PLAYERS
 PLUGIN_ICKSTREAM_PLAYERS_DESC
 	EN	Squeezeboxes which haven been configured to be used with ickStream remote controls
 
+PLUGIN_ICKSTREAM_DAEMON_NOT_SUPPORTED
+	EN	Not yet supported on Windows
+
 PLUGIN_ICKSTREAM_REGISTERED_PLAYERS
-	EN	Squeezeboxes configured for ickStream
+	EN	Registered players
 
 PLUGIN_ICKSTREAM_REGISTERED_PLAYERS_DESC
-	EN	Squeezeboxes which haven been configured to be used with ickStream
+	EN	Squeezeboxes which haven been registered on ickStream Music Platform
 
 PLUGIN_ICKSTREAM_PLAYERS_NONE
-	EN	No players setup for ickStream
+	EN	None of the connected Squeezebox players support ickStream remote controls
+
+PLUGIN_ICKSTREAM_PLAYERS_NONE_REGISTERED
+	EN	None of the connected Squeezebox players are registered on ickStream Music Platform
 
 PLUGIN_ICKSTREAM_CLOUD_SERVICE_REFRESH
 	EN	Refresh
@@ -131,7 +137,7 @@ PLUGIN_ICKSTREAM_UNSUPPORTED_PLAYERS_DESC
 	EN	The following players are currently unsupported in your setup. The reason for this is likely that we haven't approved this player model for usage with ickStream Music Platform yet. If it's a commercial player the reason could also be that we haven't yet approved this commercial vendor for usage with ickStream Music Platform, if you suspect this is the case please contact us or the commercial vendor for more information.
 
 PLUGIN_ICKSTREAM_UNCONFIRMED_TERMS_OF_USE
-	EN	You need to agree with the following terms of use to use these player models
+	EN	You need to agree with the following terms of use
 
 PLUGIN_ICKSTREAM_APPROVE_LICENSE_FOR
 	EN	I agree with terms of use for
