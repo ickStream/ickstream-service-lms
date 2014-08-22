@@ -268,7 +268,11 @@ sub getUnconfirmedLicenses {
 					if($player) {
 						my $model = $player->model();
 						if(!defined($unconfirmedLicenses->{$md5}->{$model})) {
-							$unconfirmedLicenses->{$md5}->{$model} = $player->modelName();
+							if($player->modelName() eq 'SqueezePlay' && $player->model ne 'squeezeplay') {
+								$unconfirmedLicenses->{$md5}->{$model} = $player->model;
+							}else {
+								$unconfirmedLicenses->{$md5}->{$model} = $player->modelName();
+							}
 						}
 					}else {
 						if(!defined($unconfirmedLicenses->{$md5}->{"lms"})) {
