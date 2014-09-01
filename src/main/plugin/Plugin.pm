@@ -133,6 +133,12 @@ $prefs->migrate( 8, sub {
 	}
 	1;
 });
+$prefs->migrate( 9, sub {
+	if(defined($prefs->get('accessToken'))) {
+		$prefs->remove('accessToken');
+	}
+	1;
+});
 
 $prefs->migrateClient(1, sub {
 	my ($clientPrefs, $client) = @_;
