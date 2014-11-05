@@ -113,4 +113,16 @@
 			[% END %]
 		[% END %]
 
+		[% IF confirmedLicenses %]
+	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_CONFIRMED_LICENSES" desc="PLUGIN_ICKSTREAM_CONFIRMED_LICENSES_DESC" %]
+				[% first = 1 %]
+				[% FOREACH playerModel = confirmedLicenses.keys.sort %]
+					[% IF !first %], [% END %]
+					[% first = 0 %]
+					<A href="[% webroot %]plugins/IckStreamPlugin/license_[% playerModel %].txt" target="_blank">
+					[% confirmedLicenses.$playerModel %]</A>
+				[% END %]
+	        [% END %]
+		[% END %]
+
 [% PROCESS settings/footer.html %]

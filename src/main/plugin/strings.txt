@@ -124,6 +124,12 @@ PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES
 PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES_DESC
 	EN	You need to confirm these terms of use to be able to use ickStream Music Platform on the listed player models
 
+PLUGIN_ICKSTREAM_CONFIRMED_LICENSES
+	EN	Terms of use
+
+PLUGIN_ICKSTREAM_CONFIRMED_LICENSES_DESC
+	EN	Terms of use for players you have already confirmed to use with ickStream Music Platform
+
 PLUGIN_ICKSTREAM_UNSUPPORTED_PLAYERS
 	EN	Unsupported players
 

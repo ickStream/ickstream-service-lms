@@ -115,21 +115,26 @@ sub handler {
 	
 	getUnconfirmedLicenses(
 		sub {
-			getApplicationIdForLMS(
+			getConfirmedLicenses(
 				sub {
-					getUserInformation(
+					getApplicationIdForLMS(
 						sub {
-							if(!main::ISWINDOWS) {
-								$params->{'daemonSupported'} = 1;
-							}
-							getInitializedPlayers($params);
-							getRegisteredPlayers($params);
-							handleForcedPlayerRegistration($params);
-							my $result = $class->SUPER::handler($client, $params);
-							&{$callback}($client,$params,$result,$httpClient,$response);
+							getUserInformation(
+								sub {
+									if(!main::ISWINDOWS) {
+										$params->{'daemonSupported'} = 1;
+									}
+									getInitializedPlayers($params);
+									getRegisteredPlayers($params);
+									handleForcedPlayerRegistration($params);
+									my $result = $class->SUPER::handler($client, $params);
+									&{$callback}($client,$params,$result,$httpClient,$response);
+								},
+								$params
+							)
 						},
 						$params
-					)
+					);
 				},
 				$params
 			);
@@ -302,6 +307,46 @@ sub getUnconfirmedLicenses {
 	}
 	
 }
+
+sub getConfirmedLicenses {
+	my $callback = shift;
+	my $params = shift;
+	my $remainingPlayers = shift;
+	
+	if(!defined($remainingPlayers)) {
+		my @players = Slim::Player::Client::clients();
+		unshift @players, undef;
+		$remainingPlayers = \@players;
+	}
+	
+	if(scalar(@$remainingPlayers)>0) {
+		my $player = shift @$remainingPlayers;
+		if(Plugins::IckStreamPlugin::LicenseManager::isLicenseConfirmed($player)) {
+			if(!defined($params->{'confirmedLicenses'})) {
+				$params->{'confirmedLicenses'} = {};
+			}
+			my $confirmedLicenses = $params->{'confirmedLicenses'};
+			if($player) {
+				my $model = $player->model();
+				if(!defined($confirmedLicenses->{$model})) {
+					if($player->modelName() eq 'SqueezePlay' && $player->model ne 'squeezeplay') {
+						$confirmedLicenses->{$model} = $player->model;
+					}else {
+						$confirmedLicenses->{$model} = $player->modelName();
+					}
+				}
+			}else {
+				if(!defined($confirmedLicenses->{"lms"})) {
+					$confirmedLicenses->{"lms"} = "Logitech Media Server";
+				}
+			}
+		}
+		getConfirmedLicenses($callback,$params, $remainingPlayers);
+	}else {
+		&{$callback}();
+	}
+}
+
 	
 sub getUserInformation {
 	my ($callback, $params) = @_;
