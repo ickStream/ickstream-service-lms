@@ -10,7 +10,7 @@
             <desc lang="EN">Plugin that makes it possible to access ickStream online services on Squeezebox players</desc>
             <creator>ickStream GmbH</creator>
             <sha>${com.ickstream.services.lms.sha}</sha>
-            <url>http://downloads.ickstream.com/squeezebox/IckStreamPlugin-${buildNumber}-windows.zip</url>
+            <url>http://repository.ickstream.com/squeezebox/IckStreamPlugin-${buildNumber}-windows.zip</url>
             <link>http://www.ickstream.com</link>
         </plugin>
     </plugins>

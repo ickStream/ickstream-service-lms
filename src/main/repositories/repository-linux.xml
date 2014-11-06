@@ -10,7 +10,7 @@
             <desc lang="EN">Plugin that makes LMS server available for ickStream devices and Squeezeboxes available as ickStream players</desc>
             <creator>ickStream GmbH</creator>
             <sha>${com.ickstream.services.lms.sha}</sha>
-            <url>http://downloads.ickstream.com/squeezebox/IckStreamPlugin-${buildNumber}-linux.zip</url>
+            <url>http://repository.ickstream.com/squeezebox/IckStreamPlugin-${buildNumber}-linux.zip</url>
             <link>http://www.ickstream.com</link>
         </plugin>
     </plugins>
