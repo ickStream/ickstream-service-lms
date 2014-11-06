@@ -130,6 +130,12 @@ PLUGIN_ICKSTREAM_CONFIRMED_LICENSES
 PLUGIN_ICKSTREAM_CONFIRMED_LICENSES_DESC
 	EN	Terms of use for players you have already confirmed to use with ickStream Music Platform
 
+PLUGIN_ICKSTREAM_PRIVACY_POLICY
+	EN	Privacy Policy
+
+PLUGIN_ICKSTREAM_PRIVACY_POLICY_DESC
+	EN	Privacy Policy for ickStream Music Platform
+
 PLUGIN_ICKSTREAM_UNSUPPORTED_PLAYERS
 	EN	Unsupported players
 
