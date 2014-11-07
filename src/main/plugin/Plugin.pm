@@ -139,6 +139,16 @@ $prefs->migrate( 9, sub {
 	}
 	1;
 });
+$prefs->migrate( 10, sub {
+	if(defined($prefs->get('cloudCoreUrl'))) {
+		if($prefs->get('cloudCoreUrl') eq 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc' ||
+			$prefs->get('cloudCoreUrl') eq 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc') {
+				
+			$prefs->remove('cloudCoreUrl');	
+		}
+	}
+	1;
+});
 
 $prefs->migrateClient(1, sub {
 	my ($clientPrefs, $client) = @_;
@@ -162,10 +172,26 @@ $prefs->migrateClient(2, sub {
 	1;
 });
 
+$prefs->migrateClient(3, sub {
+	my ($clientPrefs, $client) = @_;
+	
+	if(defined($clientPrefs->get('playerConfiguration')) && defined($clientPrefs->get('playerConfiguration')->{'cloudCoreUrl'})) {
+		my $playerConfiguration = $clientPrefs->get('playerConfiguration');
+		if($playerConfiguration->{'cloudCoreUrl'} eq 'http://api.ickstream.com/ickstream-cloud-core/jsonrpc' ||
+			$playerConfiguration->{'cloudCoreUrl'} eq 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc') {
+
+			delete $playerConfiguration->{'cloudCoreUrl'};
+			$clientPrefs->set('playerConfiguration', $playerConfiguration);
+		}
+	}
+	1;
+});
+
 my $nextRequestedLocalServiceId = 2;
 
 sub initPlugin {
 	my $class = shift;
+	${Plugins::IckStreamPlugin::Configuration::HOST} = $class->_pluginDataFor('apiHost');
 	Slim::Player::ProtocolHandlers->registerHandler(
 		ickstream => 'Plugins::IckStreamPlugin::ProtocolHandler'
 	);

@@ -36,6 +36,7 @@ use Digest::MD5;
 use File::Slurp;
 use File::Spec::Functions qw(:ALL);
 use URI::Escape qw( uri_escape_utf8 );
+use Plugins::IckStreamPlugin::Configuration;
 
 my $log = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
@@ -312,7 +313,7 @@ sub _readLicense {
 }
 
 sub _getBaseUrl {
-	my $licenseBaseUrl = 'https://api.ickstream.com/ickstream-cloud-application-publisher';
+	my $licenseBaseUrl = ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-application-publisher';
 	if(defined($prefs->get('licenseBaseUrl'))) {
 		$licenseBaseUrl = $prefs->get('licenseBaseUrl') || $licenseBaseUrl;
 	}

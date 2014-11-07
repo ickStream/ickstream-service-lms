@@ -33,6 +33,7 @@ use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 use JSON::XS::VersionOneAndTwo;
 use Plugins::IckStreamPlugin::PlayerManager;
+use Plugins::IckStreamPlugin::Configuration;
 
 use Crypt::Tea;
 
@@ -146,13 +147,13 @@ sub handler {
 }
 
 sub _getCloudCoreUrl {
-	return $prefs->get('cloudCoreUrl') || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	return $prefs->get('cloudCoreUrl') || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
 }
 
 sub _getManageAccountUrl {
 	my $manageAccountUrl = _getCloudCoreUrl();
 	$manageAccountUrl =~ s/^(https?:\/\/.*?)\/.*/\1/;
-	$manageAccountUrl =~ s/^(https?:\/\/)api(.*)/\1cloud\2/;
+	$manageAccountUrl =~ s/^(https?:\/\/)(.*?)api(.*)/\1\2cloud\3/;
 	return $manageAccountUrl;
 }
 

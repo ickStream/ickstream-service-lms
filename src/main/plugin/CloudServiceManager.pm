@@ -32,6 +32,7 @@ use Slim::Utils::Prefs;
 use Slim::Utils::Log;
 use Slim::Utils::Misc;
 use JSON::XS::VersionOneAndTwo;
+use Plugins::IckStreamPlugin::Configuration;
 
 my $log   = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
@@ -73,7 +74,7 @@ sub _refreshContentServices {
 	my $callback = shift;
 	
 	my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
-	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
 	
 	if(defined($playerConfiguration->{'accessToken'})) {
 		$log->info("Retrieve content services from cloud");

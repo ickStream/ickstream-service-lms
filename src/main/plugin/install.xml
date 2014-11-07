@@ -8,6 +8,7 @@
     <module>Plugins::IckStreamPlugin::Plugin</module>
     <icon>plugins/IckStreamPlugin/html/images/icon.png</icon>
     <optionsURL>plugins/IckStreamPlugin/settings/basic.html</optionsURL>
+    <apiHost>https://api.ickstream.com</apiHost>
     <targetApplication>
         <id>SqueezeCenter</id>
         <maxVersion>*</maxVersion>

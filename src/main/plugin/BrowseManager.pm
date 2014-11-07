@@ -36,6 +36,7 @@ use Slim::Utils::Strings qw(string cstring);
 use JSON::XS::VersionOneAndTwo;
 use Data::Dumper;
 use Tie::Cache::LRU;
+use Plugins::IckStreamPlugin::Configuration;
 
 my $log = Slim::Utils::Log->addLogCategory({
 	'category'     => 'plugin.ickstream.browse',
@@ -69,7 +70,7 @@ sub _getCloudCoreUrl {
 	my $player = shift;
 	
 	my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
-	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
 	return $cloudCoreUrl;
 }
 

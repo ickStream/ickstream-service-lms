@@ -33,6 +33,7 @@ use Slim::Utils::Misc;
 use Slim::Utils::Prefs;
 use JSON::XS::VersionOneAndTwo;
 use Plugins::IckStreamPlugin::LicenseManager;
+use Plugins::IckStreamPlugin::Configuration;
 
 my $log = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
@@ -212,7 +213,7 @@ sub _getCloudCoreUrl {
 		$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 		return $cloudCoreUrl;
 	}else {
-		$cloudCoreUrl = 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+		$cloudCoreUrl = ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
 		if(defined($playerConfiguration->{'cloudCoreUrl'})) {
 			$playerConfiguration->{'cloudCoreUrl'} = undef;
 			$prefs->client($player)->set('playerConfiguration',$playerConfiguration);

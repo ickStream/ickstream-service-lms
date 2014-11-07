@@ -34,6 +34,7 @@ use Slim::Utils::Prefs;
 use JSON::XS::VersionOneAndTwo;
 use Data::Dumper;
 use Storable qw(dclone);
+use Plugins::IckStreamPlugin::Configuration;
 
 use Plugins::IckStreamPlugin::ItemCache;
 use Plugins::IckStreamPlugin::PlaybackQueueManager;
@@ -103,7 +104,7 @@ sub setPlayerConfiguration {
         }
         my $sendNotification = 0;
         my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
-        if(defined($reqParams->{'cloudCoreUrl'}) && ((!defined($playerConfiguration->{'cloudCoreUrl'}) && $reqParams->{'cloudCoreUrl'} ne 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc') || $reqParams->{'cloudCoreUrl'} ne $playerConfiguration->{'cloudCoreUrl'})) {
+        if(defined($reqParams->{'cloudCoreUrl'}) && ((!defined($playerConfiguration->{'cloudCoreUrl'}) && $reqParams->{'cloudCoreUrl'} ne ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc') || $reqParams->{'cloudCoreUrl'} ne $playerConfiguration->{'cloudCoreUrl'})) {
         	$playerConfiguration->{'cloudCoreUrl'} = $reqParams->{'cloudCoreUrl'};
         	$playerConfiguration->{'accessToken'} = undef;
         	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
@@ -119,7 +120,7 @@ sub setPlayerConfiguration {
         	$playerConfiguration->{'accessToken'} = $reqParams->{'accessToken'};
         	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	
-        	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+        	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
 		my $httpParams = { timeout => 35 };
 			Slim::Networking::SimpleAsyncHTTP->new(
 				sub {
@@ -182,7 +183,7 @@ sub registerPlayer {
 		sub {
 			my $applicationId = shift;
 			
-			my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+			my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
 			my $httpParams = { timeout => 35 };
 			Slim::Networking::SimpleAsyncHTTP->new(
 				sub {
@@ -244,7 +245,7 @@ sub getPlayerConfiguration {
                 $log->debug( $client->name() .": ". "getPlayerConfiguration()" );
         }
 		my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
-        my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || 'https://api.ickstream.com/ickstream-cloud-core/jsonrpc';
+        my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
         my $result = {
         	'cloudCoreUrl' => $cloudCoreUrl,
         	'playerName' => $client->name(),
