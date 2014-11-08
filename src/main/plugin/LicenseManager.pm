@@ -50,6 +50,7 @@ sub getApplicationId {
 	my $player = shift;
 	my $cbSuccess = shift;
 	my $cbFailure = shift;
+	my $retry = shift;
 
 	if($player) {
 		my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
@@ -76,6 +77,15 @@ sub getApplicationId {
 					},
 					sub {
 						my $error = shift;
+						if(!$retry) {
+							my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
+							my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".txt");
+							unlink $licenseFile;
+							my $confirmedLicenses = $prefs->get('confirmedLicenses');
+							delete $confirmedLicenses->{_getDeviceModel($player)};
+							$prefs->set('confirmedLicenses',$confirmedLicenses);
+							getApplicationId($player, $cbSuccess,$cbFailure,1);
+						}
 						&{$cbFailure}("Failed to retrieve application identity for "._getDeviceName($player).":\n".$error);
 					});
 			}else {
@@ -113,6 +123,9 @@ sub getLicense {
 
 sub showLicense {
    my ($client, $params, $callback, $httpClient, $response) = @_;
+	my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
+	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($client).".txt");
+	unlink $licenseFile;
     getLicense($client,
     	sub {
     		my $md5 = shift;
