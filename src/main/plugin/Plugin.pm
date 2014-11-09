@@ -254,7 +254,7 @@ sub webPages {
 	Slim::Web::Pages->addRawFunction('IckStreamPlugin/PlayerService/jsonrpc', \&Plugins::IckStreamPlugin::PlayerService::handleJSONRPC);
 	Slim::Web::Pages->addRawFunction('IckStreamPlugin/discovery', \&Plugins::IckStreamPlugin::LocalServiceManager::handleDiscoveryJSON);
 	Slim::Web::Pages->addPageFunction('IckStreamPlugin/settings/authenticationCallback\.html', \&Plugins::IckStreamPlugin::Settings::handleAuthenticationFinished);
-	Slim::Web::Pages->addPageFunction('IckStreamPlugin/license_.*\.txt', \&Plugins::IckStreamPlugin::LicenseManager::showLicense);
+	Slim::Web::Pages->addPageFunction('IckStreamPlugin/license_.*\.html', \&Plugins::IckStreamPlugin::LicenseManager::showLicense);
 	Slim::Web::HTTP::addCloseHandler(\&Plugins::IckStreamPlugin::JsonHandler::handleClose);
 
 	$class->SUPER::webPages();
