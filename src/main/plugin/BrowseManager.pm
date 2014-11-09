@@ -341,6 +341,18 @@ sub processTopLevel {
 				url => \&preferredServiceMenu,
 				passthrough => [$service->{'id'}]
 			};
+			my $imageUrl = undef;
+			if(defined($service->{'images'})) {
+				my $images = $service->{'images'};
+				foreach my $image (@$images) {
+					if($image->{'type'} eq 'icon_rgb') {
+						$imageUrl = $image->{'url'}
+					}
+				}
+			}
+			if(defined($imageUrl)) {
+				$serviceEntry->{'image'} = $imageUrl;
+			}
 			push @services,$serviceEntry;
 		}
 		$log->debug("Got ".scalar(@services)." items");
