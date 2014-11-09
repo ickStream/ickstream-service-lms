@@ -79,7 +79,7 @@ sub getApplicationId {
 						my $error = shift;
 						if(!$retry) {
 							my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
-							my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".txt");
+							my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".html");
 							unlink $licenseFile;
 							my $confirmedLicenses = $prefs->get('confirmedLicenses');
 							delete $confirmedLicenses->{_getDeviceModel($player)};
@@ -124,7 +124,7 @@ sub getLicense {
 sub showLicense {
    my ($client, $params, $callback, $httpClient, $response) = @_;
 	my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
-	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($client).".txt");
+	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($client).".html");
 	unlink $licenseFile;
     getLicense($client,
     	sub {
@@ -285,7 +285,7 @@ sub _readLicense {
 	my $cbFailure = shift;
 	
 	my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
-	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".txt");
+	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".html");
 	if(-e $licenseFile) {
 		my $licenseText = eval { read_file($licenseFile) };
 		if(defined($licenseText)) {
