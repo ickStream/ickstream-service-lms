@@ -74,6 +74,12 @@ sub new {
 
 sub isRemote { 1 }
 
+sub bufferThreshold {
+	my ($class, $client, $url) = @_;
+
+	return (96 * 3);
+}
+
 # Avoid scanning
 sub scanUrl {
 	my ( $class, $url, $args ) = @_;
