@@ -46,6 +46,7 @@ my $log = Slim::Utils::Log->addLogCategory({
 	'description'  => 'PLUGIN_ICKSTREAM_PROTOCOL_LOG',
 });
 my $prefs = preferences('plugin.ickstream');
+my $serverPrefs = preferences('server');
 
 my $localServiceItemRequestIds = {};
 my $localServiceItemStreamingRefRequestIds = {};
@@ -77,7 +78,8 @@ sub isRemote { 1 }
 sub bufferThreshold {
 	my ($class, $client, $url) = @_;
 
-	return (96 * 3);
+	my $threshold = 160 * ($serverPrefs->get('bufferSecs') || 3);
+	return $threshold;
 }
 
 # Avoid scanning
