@@ -54,7 +54,7 @@
 					[% FOREACH playerModel = unconfirmedLicenses.$licenseKey.keys.sort %]
 						[% IF !first %], [% END %]
 						[% first = 0 %]
-						<A href="[% webroot %]plugins/IckStreamPlugin/license_[% playerModel %].txt" target="_blank">
+						<A href="[% webroot %]plugins/IckStreamPlugin/license_[% playerModel %].html" target="_blank">
 						[% unconfirmedLicenses.$licenseKey.$playerModel %]</A>
 					[% END %]
 					</input><BR/>
