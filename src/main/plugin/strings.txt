@@ -150,3 +150,9 @@ PLUGIN_ICKSTREAM_APPROVE_LICENSE_FOR
 
 PLUGIN_ICKSTREAM_CLOUD_LOGIN_REFRESH_MESSAGE
 	EN	If you have just logged in successfully, click "Refresh" button to update the page
+
+PLUGIN_ICKSTREAM_PROXIED_STREAMING
+	EN	Proxied streaming
+
+PLUGIN_ICKSTREAM_PROXIED_STREAMING_DESC
+	EN	Enabled proxied streaming through LMS, this can help with dropouts on lossless streaming services on some setups

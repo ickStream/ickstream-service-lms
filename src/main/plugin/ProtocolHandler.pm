@@ -496,6 +496,9 @@ sub canDirectStreamSong {
 	if($url =~ /^https/) {
 		$url = 0;
 	}
+	if($prefs->get("proxiedStreaming")) {
+		$url = 0;
+	}
 	$log->debug("canDirectStreamSong: ".$url);
 	return $url;
 }

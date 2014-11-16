@@ -36,6 +36,13 @@
 
         [% END %]
 
+        [% WRAPPER setting title="PLUGIN_ICKSTREAM_PROXIED_STREAMING" desc="PLUGIN_ICKSTREAM_PROXIED_STREAMING_DESC" %]
+        <select name="pref_proxiedStreaming">
+                <option value="0" [% IF NOT prefs.proxiedStreaming %]selected[% END %]>[% "DISABLED" | string %]</option>
+                <option value="1" [% IF prefs.proxiedStreaming %]selected[% END %]>[% "ENABLED" | string %]</option>
+        </select>
+        [% END %]
+
 		[% IF unconfirmedLicenses %]
 	        [% WRAPPER setting title="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES" desc="PLUGIN_ICKSTREAM_UNCONFIRMED_LICENSES_DESC" %]
 	        	<div style="color:red;font-weight:bold;">[% "PLUGIN_ICKSTREAM_UNCONFIRMED_TERMS_OF_USE" | string %]:<br/></div>
