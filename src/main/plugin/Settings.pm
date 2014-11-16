@@ -79,7 +79,7 @@ sub page {
 }
 
 sub prefs {
-	return ($prefs, 'orderAlbumsForArtist', 'daemonPort', 'disablePeerVerification');
+	return ($prefs, 'orderAlbumsForArtist', 'daemonPort', 'disablePeerVerification', 'proxiedStreaming');
 }
 
 sub handler {
