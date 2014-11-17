@@ -34,6 +34,7 @@ use Slim::Utils::Prefs;
 use JSON::XS::VersionOneAndTwo;
 use Plugins::IckStreamPlugin::LicenseManager;
 use Plugins::IckStreamPlugin::Configuration;
+use Slim::Utils::Unicode;
 
 my $log = logger('plugin.ickstream');
 my $prefs = preferences('plugin.ickstream');
@@ -147,7 +148,7 @@ sub uninitializePlayer {
 					$log->warn("Error when removing ".$player->name()." ".Dumper($http));
 				},
 				$params
-			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
+			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,Slim::Utils::Unicode::utf8encode($player->name()));
 		}
 	}
 }
@@ -280,7 +281,7 @@ sub _performPlayerInitialization {
 						updateAddressOrRegisterPlayer($player, $callback,1);
 					},
 					$params
-				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,$player->name());
+				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,Slim::Utils::Unicode::utf8encode($player->name()));
 			}else {
 				updateAddressOrRegisterPlayer($player, $callback);
 			}
@@ -367,7 +368,7 @@ sub _performPlayerRegistration {
 			'method' => 'createDeviceRegistrationToken',
 			'params' => {
 				'id' => $uuid,
-				'name' => $player->name(),
+				'name' => Slim::Utils::Unicode::utf8encode($player->name()),
 				'applicationId' => $applicationId
 			}
 		}));
