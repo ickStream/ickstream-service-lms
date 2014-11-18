@@ -136,6 +136,8 @@ sub uninitializePlayer {
 	    my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 	    my $uuid = $playerConfiguration->{'id'};
 		if(!main::ISWINDOWS) {
+			my $playerName = Slim::Utils::Unicode::utf8encode($player->name());
+			$log->debug("Got player name: ".$playerName);
 			Slim::Networking::SimpleAsyncHTTP->new(
 				sub {
 					$initializedPlayers->{$player->id()} = undef;
@@ -148,7 +150,7 @@ sub uninitializePlayer {
 					$log->warn("Error when removing ".$player->name()." ".Dumper($http));
 				},
 				$params
-			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,Slim::Utils::Unicode::utf8encode($player->name()));
+			)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/stop",'Content-Type' => 'plain/text','Authorization'=>$uuid,$playerName);
 		}
 	}
 }
@@ -269,6 +271,8 @@ sub _performPlayerInitialization {
 			$prefs->client($player)->set('playerConfiguration', $playerConfiguration);
 			if(!main::ISWINDOWS) {
 			    my $serverIP = Slim::Utils::IPDetect::IP();
+				my $playerName = Slim::Utils::Unicode::utf8encode($player->name());
+				$log->debug("Got player name: ".$playerName);
 				Slim::Networking::SimpleAsyncHTTP->new(
 					sub {
 						$initializedPlayers->{$player->id()} = 1;
@@ -281,7 +285,7 @@ sub _performPlayerInitialization {
 						updateAddressOrRegisterPlayer($player, $callback,1);
 					},
 					$params
-				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,Slim::Utils::Unicode::utf8encode($player->name()));
+				)->post("http://".$serverIP.":".$prefs->get('daemonPort')."/start",'Content-Type' => 'plain/text','Authorization'=>$uuid,$playerName);
 			}else {
 				updateAddressOrRegisterPlayer($player, $callback);
 			}
@@ -327,6 +331,8 @@ sub _performPlayerRegistration {
 
 	$log->info("Requesting device registration token from: ".$cloudCoreUrl);
 	my $httpParams = { timeout => 35 };
+	my $playerName = Slim::Utils::Unicode::utf8decode_guess($player->name());
+	$log->debug("Got player name: ".$playerName);
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
 			my $http = shift;
@@ -368,7 +374,7 @@ sub _performPlayerRegistration {
 			'method' => 'createDeviceRegistrationToken',
 			'params' => {
 				'id' => $uuid,
-				'name' => Slim::Utils::Unicode::utf8encode($player->name()),
+				'name' => $playerName,
 				'applicationId' => $applicationId
 			}
 		}));
