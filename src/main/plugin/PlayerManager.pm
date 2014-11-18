@@ -331,7 +331,7 @@ sub _performPlayerRegistration {
 
 	$log->info("Requesting device registration token from: ".$cloudCoreUrl);
 	my $httpParams = { timeout => 35 };
-	my $playerName = Slim::Utils::Unicode::utf8decode_guess($player->name());
+	my $playerName = Slim::Utils::Unicode::utf8decode_locale($player->name());
 	$log->debug("Got player name: ".$playerName);
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
@@ -368,7 +368,7 @@ sub _performPlayerRegistration {
 			}
 		},
 		$httpParams
-		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$controllerAccessToken,to_json({
+		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$controllerAccessToken,"".to_json({
 			'jsonrpc' => '2.0',
 			'id' => 1,
 			'method' => 'createDeviceRegistrationToken',
