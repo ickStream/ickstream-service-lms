@@ -469,6 +469,7 @@ sub formatOverride {
 	$log->debug("Cached meta for ".$trackId.": ".Dumper($meta));
 	if($meta && $meta->{'format'}) {
 		my $format = Slim::Music::Info::mimeToType($meta->{'format'});
+		${Slim::Schema::contentTypeCache}{$track} = $format;
 		$log->debug("formatOverride = $format");
 		return $format;
 	}else {
