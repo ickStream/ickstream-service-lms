@@ -37,9 +37,9 @@
         [% END %]
 
         [% WRAPPER setting title="PLUGIN_ICKSTREAM_PROXIED_STREAMING" desc="PLUGIN_ICKSTREAM_PROXIED_STREAMING_DESC" %]
-        <select name="pref_proxiedStreaming">
-                <option value="0" [% IF NOT prefs.proxiedStreaming %]selected[% END %]>[% "DISABLED" | string %]</option>
-                <option value="1" [% IF prefs.proxiedStreaming %]selected[% END %]>[% "ENABLED" | string %]</option>
+        <select name="pref_proxiedStreamingForHires">
+                <option value="0" [% IF NOT prefs.proxiedStreamingForHires %]selected[% END %]>[% "DISABLED" | string %]</option>
+                <option value="1" [% IF prefs.proxiedStreamingForHires %]selected[% END %]>[% "ENABLED" | string %]</option>
         </select>
         [% END %]
 

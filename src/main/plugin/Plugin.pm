@@ -149,6 +149,11 @@ $prefs->migrate( 10, sub {
 	}
 	1;
 });
+$prefs->migrate( 11, sub {
+	$prefs->set('proxiedStreamingForHires', 1);
+	1;
+});
+
 
 $prefs->migrateClient(1, sub {
 	my ($clientPrefs, $client) = @_;
