@@ -287,7 +287,7 @@ sub _readLicense {
 	my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
 	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".html");
 	if(-e $licenseFile) {
-		my $licenseText = eval { read_file($licenseFile) };
+		my $licenseText = eval { read_file($licenseFile, { binmode => ':raw' }) };
 		if(defined($licenseText)) {
 			my $md5 = Digest::MD5::md5_hex($licenseText);
 			if(defined($md5)) {
@@ -307,12 +307,7 @@ sub _readLicense {
 				my $pluginConfigurationDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream');
 				mkdir($pluginConfigurationDir);
 				mkdir($licenseDir);
-				my $fh;
-				open($fh,"> $licenseFile") or do {
-                    $log->warn("Unable to save retrieved license file to: $licenseFile");
-                };
-                print $fh $jsonResponse->{'licenseText'};
-                close $fh;
+				write_file( $licenseFile, { binmode => ':raw'}, $jsonResponse->{'licenseText'});
 				&{$cbSuccess}($jsonResponse->{'md5'},$jsonResponse->{'licenseText'});
 				return;
 			}
