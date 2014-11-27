@@ -107,6 +107,7 @@ sub setPlayerConfiguration {
         if(defined($reqParams->{'cloudCoreUrl'}) && ((!defined($playerConfiguration->{'cloudCoreUrl'}) && $reqParams->{'cloudCoreUrl'} ne ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc') || $reqParams->{'cloudCoreUrl'} ne $playerConfiguration->{'cloudCoreUrl'})) {
         	$playerConfiguration->{'cloudCoreUrl'} = $reqParams->{'cloudCoreUrl'};
         	$playerConfiguration->{'accessToken'} = undef;
+        	$playerConfiguration->{'userId'} = undef;
         	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	# TODO: Add some error handling for invalid urls
         }
@@ -114,6 +115,7 @@ sub setPlayerConfiguration {
         	registerPlayer($client,$reqParams->{'deviceRegistrationToken'});
         }elsif(defined($reqParams->{'deviceRegistrationToken'})) {
         	$playerConfiguration->{'accessToken'} = undef;
+        	$playerConfiguration->{'userId'} = undef;
         	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	$sendNotification = 1;
         }elsif(defined($reqParams->{'accessToken'}) && $reqParams->{'accessToken'} ne '') {
@@ -133,6 +135,7 @@ sub setPlayerConfiguration {
 					$log->warn("Failed to update IP-address in cloud: ".$error);
 					$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 					$playerConfiguration->{'accessToken'} = undef;
+					$playerConfiguration->{'userId'} = undef;
 					$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
 					sendPlayerStatusChangedNotification($client);
 				},
@@ -149,6 +152,7 @@ sub setPlayerConfiguration {
         	$sendNotification = 1;
         }elsif(defined($reqParams->{'accessToken'})) {
         	$playerConfiguration->{'accessToken'} = undef;
+        	$playerConfiguration->{'userId'} = undef;
         	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	$sendNotification = 1;
         }
@@ -171,6 +175,7 @@ sub registerPlayer {
 	
     my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 	$playerConfiguration->{'accessToken'} = undef;
+	$playerConfiguration->{'userId'} = undef;
 	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
 	
 	my $uuid = $client->uuid;
@@ -193,6 +198,7 @@ sub registerPlayer {
 						$log->info("Succeessfully registered player ".$client->name()." in cloud");
 						$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
+						$playerConfiguration->{'userId'} = $jsonResponse->{'result'}->{'userId'};
 						$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
 						sendPlayerStatusChangedNotification($client);
 						if($successCb) {
@@ -252,6 +258,15 @@ sub getPlayerConfiguration {
         	'playerModel' => 'Squeezebox',
         	'hardwareId' => $client->macaddress()
         };
+		if(defined($playerConfiguration->{'accessToken'})) {
+			$result->{'cloudCoreStatus'} = 'REGISTERED';
+			if(defined($playerConfiguration->{'userId'})) {
+				$result->{'userId'} = $playerConfiguration->{'userId'};
+			}
+		}else {
+			$result->{'cloudCoreStatus'} = 'UNREGISTERED';
+		}
+
         # the request was successful and is not async, send results back to caller!
         &{$responseCallback}($result);
 }
@@ -269,6 +284,9 @@ sub getPlayerStatus {
 		my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 		if(defined($playerConfiguration->{'accessToken'})) {
 			$result->{'cloudCoreStatus'} = 'REGISTERED';
+			if(defined($playerConfiguration->{'userId'})) {
+				$result->{'userId'} = $playerConfiguration->{'userId'};
+			}
 		}else {
 			$result->{'cloudCoreStatus'} = 'UNREGISTERED';
 		}
@@ -1449,6 +1467,9 @@ sub sendPlayerStatusChangedNotification {
 	my $playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 	if(defined($playerConfiguration->{'accessToken'})) {
 		$notification->{'params'}->{'cloudCoreStatus'} = 'REGISTERED';
+		if(defined($playerConfiguration->{'userId'})) {
+			$notification->{'params'}->{'userId'} = $playerConfiguration->{'userId'};
+		}
 	}else {
 		$notification->{'params'}->{'cloudCoreStatus'} = 'UNREGISTERED';
 	}
