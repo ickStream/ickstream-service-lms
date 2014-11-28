@@ -179,9 +179,19 @@ sub updateAddressOrRegisterPlayer {
 			sub {
 				# Do nothing, player already registered
 				$log->info("Player ".$player->name()." is already registered, successfully updated address in cloud");
-				Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
-				if(defined($callback)) {
-					&{$callback}();
+				my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
+				if(defined($playerConfiguration->{'userId'})) {
+					Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
+					if(defined($callback)) {
+						&{$callback}();
+					}
+				}else {
+					getUserIdForPlayer($player, sub {
+						Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
+						if($callback) {
+							&{$callback}();
+						}
+					});
 				}
 			},
 			sub {
@@ -199,6 +209,52 @@ sub updateAddressOrRegisterPlayer {
 				}
 			}));
 	}
+}
+
+sub getUserIdForPlayer {
+	my $player = shift;
+	my $callback = shift;
+	
+	my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
+	$log->debug("Getting user identity for player ".$player->name()." from cloud");
+	my $cloudCoreUrl = _getCloudCoreUrl($player);
+	my $httpParams = { timeout => 35 };
+	Slim::Networking::SimpleAsyncHTTP->new(
+		sub {
+			my $http = shift;
+			my $jsonResponse = from_json($http->content);
+			if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'id'}) {
+				$log->info("Successfully retrieved user identity");
+				$playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
+				$playerConfiguration->{'userId'} = $jsonResponse->{'result'}->{'id'};
+				$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
+				if($callback) {
+					&{$callback}($player);
+				}
+			}else {
+				$log->warn("getUser response did not contain a user identity");
+				if($callback) {
+					&{$callback}($player);
+				}
+			}
+		},
+		sub {
+			my $http = shift;
+			my $error = shift;
+			$log->warn("Failed to retrieve user identity from cloud for ".$player->name().": ".$error);
+			if($callback) {
+				&{$callback}($player);
+			}
+		},
+		$httpParams
+	)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
+		'jsonrpc' => '2.0',
+		'id' => 1,
+		'method' => 'getUser',
+		'params' => {
+		}
+	}));
+
 }
 
 sub _getCloudCoreUrl {
