@@ -198,11 +198,20 @@ sub registerPlayer {
 						$log->info("Succeessfully registered player ".$client->name()." in cloud");
 						$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
-						$playerConfiguration->{'userId'} = $jsonResponse->{'result'}->{'userId'};
-						$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
-						sendPlayerStatusChangedNotification($client);
-						if($successCb) {
-							&{$successCb}($client);
+						if(defined($jsonResponse->{'result'}->{'userId'})) {
+							$playerConfiguration->{'userId'} = $jsonResponse->{'result'}->{'userId'};
+							$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
+							sendPlayerStatusChangedNotification($client);
+							if($successCb) {
+								&{$successCb}($client);
+							}
+						}else {
+							Plugins::IckStreamPlugin::PlayerManager::getUserIdForPlayer($client, sub {
+								sendPlayerStatusChangedNotification($client);
+								if($successCb) {
+									&{$successCb}($client);
+								}
+							});
 						}
 					}else {
 						$log->warn("Failed to register player ".$client->name()." in cloud: ".Dumper($jsonResponse));
