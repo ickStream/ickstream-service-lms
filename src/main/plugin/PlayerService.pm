@@ -118,43 +118,6 @@ sub setPlayerConfiguration {
         	$playerConfiguration->{'userId'} = undef;
         	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
         	$sendNotification = 1;
-        }elsif(defined($reqParams->{'accessToken'}) && $reqParams->{'accessToken'} ne '') {
-        	$playerConfiguration->{'accessToken'} = $reqParams->{'accessToken'};
-        	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
-        	
-        	my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
-		my $httpParams = { timeout => 35 };
-			Slim::Networking::SimpleAsyncHTTP->new(
-				sub {
-					my $http = shift;
-					$log->info("Successfully updated IP-address in cloud");
-				},
-				sub {
-					my $http = shift;
-					my $error = shift;
-					$log->warn("Failed to update IP-address in cloud: ".$error);
-					$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
-					$playerConfiguration->{'accessToken'} = undef;
-					$playerConfiguration->{'userId'} = undef;
-					$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
-					sendPlayerStatusChangedNotification($client);
-				},
-				$httpParams
-			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
-				'jsonrpc' => '2.0',
-				'id' => 1,
-				'method' => 'setDeviceAddress',
-				'params' => {
-					'deviceId' => $playerConfiguration->{'id'},
-					'address' =>  Slim::Utils::IPDetect::IP()
-				}
-			}));
-        	$sendNotification = 1;
-        }elsif(defined($reqParams->{'accessToken'})) {
-        	$playerConfiguration->{'accessToken'} = undef;
-        	$playerConfiguration->{'userId'} = undef;
-        	$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
-        	$sendNotification = 1;
         }
         
         if(defined($reqParams->{'playerName'}) && $reqParams->{'playerName'} ne '') {
@@ -264,8 +227,7 @@ sub getPlayerConfiguration {
         my $result = {
         	'cloudCoreUrl' => $cloudCoreUrl,
         	'playerName' => $client->name(),
-        	'playerModel' => 'Squeezebox',
-        	'hardwareId' => $client->macaddress()
+        	'playerModel' => 'Squeezebox'
         };
 		if(defined($playerConfiguration->{'accessToken'})) {
 			$result->{'cloudCoreStatus'} = 'REGISTERED';
