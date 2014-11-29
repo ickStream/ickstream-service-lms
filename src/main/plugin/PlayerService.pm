@@ -160,6 +160,7 @@ sub registerPlayer {
 					if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'accessToken'}) {
 						$log->info("Succeessfully registered player ".$client->name()." in cloud");
 						$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
+						$playerConfiguration->{'playerModel'} = $jsonResponse->{'result'}->{'model'};
 						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
 						if(defined($jsonResponse->{'result'}->{'userId'})) {
 							$playerConfiguration->{'userId'} = $jsonResponse->{'result'}->{'userId'};
@@ -169,6 +170,7 @@ sub registerPlayer {
 								&{$successCb}($client);
 							}
 						}else {
+							$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
 							Plugins::IckStreamPlugin::PlayerManager::getUserIdForPlayer($client, sub {
 								sendPlayerStatusChangedNotification($client);
 								if($successCb) {
@@ -227,8 +229,11 @@ sub getPlayerConfiguration {
         my $result = {
         	'cloudCoreUrl' => $cloudCoreUrl,
         	'playerName' => $client->name(),
-        	'playerModel' => 'Squeezebox'
+        	'playerModel' => 'ickStreamSqueezebox'
         };
+        if(defined($playerConfiguration->{'playerModel'})) {
+        	$result->{'playerModel'} = $playerConfiguration->{'playerModel'};
+        }
 		if(defined($playerConfiguration->{'accessToken'})) {
 			$result->{'cloudCoreStatus'} = 'REGISTERED';
 			if(defined($playerConfiguration->{'userId'})) {

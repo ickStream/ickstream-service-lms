@@ -177,9 +177,15 @@ sub updateAddressOrRegisterPlayer {
 		my $httpParams = { timeout => 35 };
 		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
+				my $http = shift;
 				# Do nothing, player already registered
 				$log->info("Player ".$player->name()." is already registered, successfully updated address in cloud");
 				my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
+				my $jsonResponse = from_json($http->content);
+				if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'model'}) {
+					$playerConfiguration->{'playerModel'} = $jsonResponse->{'result'}->{'model'};
+					$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
+				}
 				if(defined($playerConfiguration->{'userId'})) {
 					Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
 					if(defined($callback)) {
