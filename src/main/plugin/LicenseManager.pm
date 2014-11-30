@@ -186,6 +186,9 @@ sub _retrieveApplicationId {
 				if($player) {
 					my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
 					$playerConfiguration->{'applicationId'} = Crypt::Tea::encrypt($jsonResponse->{'applicationId'},$serverPrefs->get('server_uuid'));
+					if(defined($jsonResponse->{'model'})) {
+						$playerConfiguration->{'playerModel'} = $jsonResponse->{'model'};
+					}
 					$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 				}else {
 					$prefs->set('applicationId',Crypt::Tea::encrypt($jsonResponse->{'applicationId'},$serverPrefs->get('server_uuid')));

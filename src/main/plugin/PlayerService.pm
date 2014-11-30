@@ -228,8 +228,7 @@ sub getPlayerConfiguration {
         my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
         my $result = {
         	'cloudCoreUrl' => $cloudCoreUrl,
-        	'playerName' => $client->name(),
-        	'playerModel' => 'ickStreamSqueezebox'
+        	'playerName' => $client->name()
         };
         if(defined($playerConfiguration->{'playerModel'})) {
         	$result->{'playerModel'} = $playerConfiguration->{'playerModel'};
