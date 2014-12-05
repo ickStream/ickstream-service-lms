@@ -197,14 +197,22 @@ sub saveConfirmedLicenses {
 	foreach my $param (keys %$params) {
 		if($param =~ /^confirmed_license_(.*)$/) {
 			$log->debug("Registering license confirmation for :". $params->{$param});
-			my $playerModel = $1;
+			my $licenseIdentity = $1;
+			my $playerModel = undef;
+			my $playerModelName = undef;
+			if($licenseIdentity =~ /^model=(.*)&modelName=(.*)$/) {
+				$playerModel = $1;
+				$playerModelName =$2;
+			}elsif($licenseIdentity =~ /^model=(.*)$/) {
+				$playerModel = $1;
+			}
 			my $confirmedLicenseMD5 = $params->{$param};
 			my @players = Slim::Player::Client::clients();
 			if($playerModel eq 'lms') {
 				Plugins::IckStreamPlugin::LicenseManager::confirmLicense(undef,$confirmedLicenseMD5);
 			}else {
 				foreach my $player (@players) {
-					if($player->model() eq $playerModel) {
+					if($player->model() eq $playerModel && $player->modelName() eq $playerModelName) {
 						Plugins::IckStreamPlugin::LicenseManager::confirmLicense($player,$confirmedLicenseMD5);
 					}
 				}
@@ -261,6 +269,8 @@ sub getUnconfirmedLicenses {
 				$log->debug("Getting license for Logitech Media Server");
 			}
 			Plugins::IckStreamPlugin::LicenseManager::getLicense($player,
+				undef,
+				undef,
 				sub {
 					my $md5 = shift;
 
@@ -272,7 +282,7 @@ sub getUnconfirmedLicenses {
 						$unconfirmedLicenses->{$md5} = {};
 					}
 					if($player) {
-						my $model = $player->model();
+						my $model = "model=".$player->model()."&modelName=".$player->modelName();
 						if(!defined($unconfirmedLicenses->{$md5}->{$model})) {
 							if($player->modelName() eq 'SqueezePlay' && $player->model ne 'squeezeplay') {
 								$unconfirmedLicenses->{$md5}->{$model} = $player->model;
@@ -282,7 +292,7 @@ sub getUnconfirmedLicenses {
 						}
 					}else {
 						if(!defined($unconfirmedLicenses->{$md5}->{"lms"})) {
-							$unconfirmedLicenses->{$md5}->{"lms"} = "Logitech Media Server";
+							$unconfirmedLicenses->{$md5}->{"model=lms"} = "Logitech Media Server";
 						}
 					}
 					
@@ -328,7 +338,7 @@ sub getConfirmedLicenses {
 			}
 			my $confirmedLicenses = $params->{'confirmedLicenses'};
 			if($player) {
-				my $model = $player->model();
+				my $model = "model=".$player->model()."&modelName=".$player->modelName();
 				if(!defined($confirmedLicenses->{$model})) {
 					if($player->modelName() eq 'SqueezePlay' && $player->model ne 'squeezeplay') {
 						$confirmedLicenses->{$model} = $player->model;
@@ -338,7 +348,7 @@ sub getConfirmedLicenses {
 				}
 			}else {
 				if(!defined($confirmedLicenses->{"lms"})) {
-					$confirmedLicenses->{"lms"} = "Logitech Media Server";
+					$confirmedLicenses->{"model=lms"} = "Logitech Media Server";
 				}
 			}
 		}
