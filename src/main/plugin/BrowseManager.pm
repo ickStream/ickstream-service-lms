@@ -113,6 +113,8 @@ sub playerChange {
 
 		if(defined($player) && ($request->isCommand([['client'],['new']]) || $request->isCommand([['client'],['reconnect']]))) {
 			Plugins::IckStreamPlugin::LicenseManager::getLicense($player,
+				undef,
+				undef,
 				sub {
 					my $accessToken = getAccessToken($player);
 					if(defined($accessToken)) {

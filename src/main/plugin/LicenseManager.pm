@@ -79,10 +79,11 @@ sub getApplicationId {
 						my $error = shift;
 						if(!$retry) {
 							my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
-							my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".html");
+							my $deviceModelName = _getDeviceModelName($player);
+							my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).(defined($deviceModelName)?"_".$deviceModelName:"").".html");
 							unlink $licenseFile;
 							my $confirmedLicenses = $prefs->get('confirmedLicenses');
-							delete $confirmedLicenses->{_getDeviceModel($player)};
+							delete $confirmedLicenses->{_getDeviceModel($player).(defined($deviceModelName)?"_".$deviceModelName:"")};
 							$prefs->set('confirmedLicenses',$confirmedLicenses);
 							getApplicationId($player, $cbSuccess,$cbFailure,1);
 						}
@@ -102,10 +103,14 @@ sub getApplicationId {
 
 sub getLicense {
 	my $player = shift;
+	my $deviceModel = shift;
+	my $deviceModelName = shift;
 	my $cbSuccess = shift;
 	my $cbFailure = shift;
 
 	_readLicense($player,
+		$deviceModel,
+		$deviceModelName,
 		sub {
 			my $md5 = shift;
 			my $licenseText = shift;
@@ -124,9 +129,13 @@ sub getLicense {
 sub showLicense {
    my ($client, $params, $callback, $httpClient, $response) = @_;
 	my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
-	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($client).".html");
+	my $deviceModelName = $params->{'modelName'};
+	my $deviceModel = $params->{'model'};
+	my $licenseFile = catfile($licenseDir,"license_".$deviceModel.(defined($deviceModelName)?"_".$deviceModelName:"").".html");
 	unlink $licenseFile;
-    getLicense($client,
+    getLicense(undef,
+    	$deviceModel,
+    	$deviceModelName,
     	sub {
     		my $md5 = shift;
     		my $licenseText = shift;
@@ -151,7 +160,8 @@ sub confirmLicense {
 		$prefs->set('confirmedLicenses',{});
 	}
 	my $confirmedLicenses = $prefs->get('confirmedLicenses');	
-	$confirmedLicenses->{_getDeviceModel($player)} = $md5;
+	my $deviceModelName = _getDeviceModelName($player);
+	$confirmedLicenses->{_getDeviceModel($player).(defined($deviceModelName)?"_".$deviceModelName:"")} = $md5;
 }
 
 sub _retrieveApplicationId {
@@ -174,10 +184,20 @@ sub _retrieveApplicationId {
 	my $macAddress = undef;
 	my $uuid = $serverPrefs->get('server_uuid');
 	my $deviceModel = _getDeviceModel($player);
+	my $deviceModelName = _getDeviceModelName($player);
+	my $deviceModelPhrase = "";
 	if($player) {
 		$uuid = $player->uuid();
 		$macAddress = $player->macaddress();
 	}
+	my $postData = 'publisherId='.$PUBLISHER.
+			'&confirmedLicenseMD5='.$confirmedLicenseMD5.
+			'&deviceModel='.uri_escape_utf8($deviceModel).
+			(defined($deviceModelName)?'&deviceModelName='.uri_escape_utf8($deviceModelName):"").
+			(defined($macAddress)?'&deviceMAC='.uri_escape_utf8($macAddress):"").
+			(defined($uuid)?'&deviceUUID='.uri_escape_utf8($uuid):"").
+			'&environment='.uri_escape_utf8($kernelInfo);
+	$log->debug("Using: ".$deviceModel.(defined($deviceModelName)?" and ".$deviceModelName:""));
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
 			my $http = shift;
@@ -209,12 +229,7 @@ sub _retrieveApplicationId {
 		},
 		$httpParams
 		)->post(_getBaseUrl().'/getapplication','Content-Type' => 'application/x-www-form-urlencoded',
-			'publisherId='.$PUBLISHER.
-			'&confirmedLicenseMD5='.$confirmedLicenseMD5.
-			'&deviceModel='.uri_escape_utf8($deviceModel).
-			(defined($macAddress)?'&deviceMAC='.uri_escape_utf8($macAddress):"").
-			(defined($uuid)?'&deviceUUID='.uri_escape_utf8($uuid):"").
-			'&environment='.uri_escape_utf8($kernelInfo)
+			$postData
 			);
 }
 
@@ -225,7 +240,8 @@ sub addLicenseIfConfirmed {
 	my $confirmedLicenses = $prefs->get('confirmedLicenses') || {};	
 	foreach my $confirmedLicense (values %$confirmedLicenses) {
 		if($md5 eq $confirmedLicense) {
-			$confirmedLicenses->{_getDeviceModel($player)} = $md5;
+			my $deviceModelName = _getDeviceModelName($player);
+			$confirmedLicenses->{_getDeviceModel($player).(defined($deviceModelName)?"_".$deviceModelName:"")} = $md5;
 			last;
 		}
 	}
@@ -235,7 +251,8 @@ sub isLicenseConfirmed {
 	my $player = shift;
 
 	my $confirmedLicenses = $prefs->get('confirmedLicenses') || {};	
-	return $confirmedLicenses->{_getDeviceModel($player)};
+	my $deviceModelName = _getDeviceModelName($player);
+	return $confirmedLicenses->{_getDeviceModel($player).(defined($deviceModelName)?"_".$deviceModelName:"")};
 }
 
 sub _getDeviceModel {
@@ -243,6 +260,15 @@ sub _getDeviceModel {
 	my $deviceModel = "lms";
 	if($player) {
 		$deviceModel = $player->model();
+	}
+	return $deviceModel;
+}
+
+sub _getDeviceModelName {
+	my $player = shift;
+	my $deviceModel = undef;
+	if($player) {
+		$deviceModel = $player->modelName();
 	}
 	return $deviceModel;
 }
@@ -263,11 +289,14 @@ sub _getLicenseMD5 {
 
 	my $confirmedLicenses = $prefs->get('confirmedLicenses') || {};	
 	if(defined($confirmedLicenses->{_getDeviceModel($player)})) {
-		&{$cbSuccess}($confirmedLicenses->{_getDeviceModel($player)});
+		my $deviceModelName = _getDeviceModelName($player);
+		&{$cbSuccess}($confirmedLicenses->{_getDeviceModel($player).(defined($deviceModelName)?"_".$deviceModelName:"")});
 		return;
 	}
 
 	_readLicense($player,
+		undef,
+		undef,
 		sub {
 			my $md5 = shift;
 			my $licenseText = shift;
@@ -284,11 +313,17 @@ sub _getLicenseMD5 {
 
 sub _readLicense {
 	my $player = shift;
+	my $deviceModel = shift;
+	my $deviceModelName = shift;
 	my $cbSuccess = shift;
 	my $cbFailure = shift;
-	
+
 	my $licenseDir = catdir(Slim::Utils::OSDetect::dirsFor('prefs'), 'plugin', 'ickstream', 'licenses');
-	my $licenseFile = catfile($licenseDir,"license_"._getDeviceModel($player).".html");
+	if(defined($player) || !defined($deviceModel)) {
+		$deviceModel = _getDeviceModel($player);
+		$deviceModelName = _getDeviceModelName($player);
+	}
+	my $licenseFile = catfile($licenseDir,"license_".$deviceModel.(defined($deviceModelName)?"_".$deviceModelName:"").".html");
 	if(-e $licenseFile) {
 		my $licenseText = eval { read_file($licenseFile, { binmode => ':raw' }) };
 		if(defined($licenseText)) {
@@ -299,8 +334,8 @@ sub _readLicense {
 			}
 		}
 	}
-
 	my $httpParams = { timeout => 35 };
+	$log->debug("Requesting license for: ".$deviceModel.(defined($deviceModelName)?" and ".$deviceModelName:""));
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
 			my $http = shift;
@@ -320,7 +355,7 @@ sub _readLicense {
 			&{$cbFailure}("Failed to retrieve license");
 		},
 		$httpParams
-		)->get(_getBaseUrl().'/getlicense?publisherId='.$PUBLISHER.'&deviceModel='._getDeviceModel($player),'Content-Type' => 'application/json');
+		)->get(_getBaseUrl().'/getlicense?publisherId='.$PUBLISHER.'&deviceModel='.$deviceModel.(defined($deviceModelName)?'&deviceModelName='. uri_escape_utf8 ($deviceModelName):''),'Content-Type' => 'application/json');
 }
 
 sub _getBaseUrl {
