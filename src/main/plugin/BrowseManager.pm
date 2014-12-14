@@ -844,6 +844,9 @@ sub processServiceChildRequestMenu {
 						$menu->{'line1'} = $item->{'text'};
 						$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
 					}
+					if($args->{isWeb} && defined($menu->{'line2'}) && $menu->{'line2'} ne "") {
+						$menu->{'name'} = $menu->{'name'}." - ".$menu->{'line2'};
+					}
 				}
 			}else {
 	        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
@@ -860,6 +863,9 @@ sub processServiceChildRequestMenu {
 				}elsif(defined($item->{'itemAttributes'}->{'album'})) {
 					$menu->{'line1'} = $item->{'text'};
 					$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
+				}
+				if($args->{isWeb} && (!defined($parent) || $parent->{'type'} ne 'album')) {
+					$menu->{'name'} = $menu->{'name'}." - ".$menu->{'line2'};
 				}
 					
 			}
@@ -1040,7 +1046,7 @@ sub processServiceItemMenu {
 					'name' => $item->{'text'}
 				};
 			}
-			
+
 			if(defined($item->{'image'})) {
 				$menu->{'image'} = $item->{'image'};
 			}
@@ -1053,6 +1059,9 @@ sub processServiceItemMenu {
 					}elsif(defined($item->{'itemAttributes'}->{'year'})) {
 						$menu->{'line1'} = $item->{'text'};
 						$menu->{'line2'} = $item->{'itemAttributes'}->{'year'};						
+					}
+					if($args->{isWeb} && defined($menu->{'line2'}) && $menu->{'line2'} ne "") {
+						$menu->{'name'} = $menu->{'name'}." - ".$menu->{'line2'};
 					}
 				}
 			}else {
@@ -1070,6 +1079,9 @@ sub processServiceItemMenu {
 				}elsif(defined($item->{'itemAttributes'}->{'album'})) {
 					$menu->{'line1'} = $item->{'text'};
 					$menu->{'line2'} = $item->{'itemAttributes'}->{'album'}->{'name'};
+				}
+				if($args->{isWeb}) {
+					$menu->{'name'} = $menu->{'name'}." - ".$menu->{'line2'};
 				}
 					
 			}
