@@ -173,47 +173,55 @@ sub updateAddressOrRegisterPlayer {
 		}
 		my $uuid = $playerConfiguration->{'uuid'};
 		my $serverIP = Slim::Utils::IPDetect::IP();
-		$log->info("Trying to set player address in cloud for ".$player->name()." to verify if its access token works through: ".$cloudCoreUrl);
-		my $httpParams = { timeout => 35 };
-		Slim::Networking::SimpleAsyncHTTP->new(
-			sub {
-				my $http = shift;
-				# Do nothing, player already registered
-				$log->info("Player ".$player->name()." is already registered, successfully updated address in cloud");
-				my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
-				my $jsonResponse = from_json($http->content);
-				if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'model'}) {
-					$playerConfiguration->{'playerModel'} = $jsonResponse->{'result'}->{'model'};
-					$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
-				}
-				if(defined($playerConfiguration->{'userId'})) {
-					Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
-					if(defined($callback)) {
-						&{$callback}();
+		if(!defined($playerConfiguration->{'ipAddress'}) || ($playerConfiguration->{'ipAddress'} ne $serverIP) || !defined($playerConfiguration->{'playerModel'}) || !defined($playerConfiguration->{'userId'})) { 
+			$log->info("Trying to set player address in cloud for ".$player->name()." to verify if its access token works through: ".$cloudCoreUrl);
+			my $httpParams = { timeout => 35 };
+			Slim::Networking::SimpleAsyncHTTP->new(
+				sub {
+					my $http = shift;
+					# Do nothing, player already registered
+					$log->info("Player ".$player->name()." is already registered, successfully updated address in cloud");
+					my $playerConfiguration = $prefs->client($player)->get('playerConfiguration') || {};
+					my $jsonResponse = from_json($http->content);
+					if($jsonResponse->{'result'} && $jsonResponse->{'result'}->{'model'}) {
+						$playerConfiguration->{'playerModel'} = $jsonResponse->{'result'}->{'model'};
+						$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 					}
-				}else {
-					getUserIdForPlayer($player, sub {
+					if(!defined($playerConfiguration->{'ipAddress'}) || ($playerConfiguration->{'ipAddress'} ne $serverIP)) {
+						$playerConfiguration->{'ipAddress'} = $serverIP;
+						$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
+					}
+					if(defined($playerConfiguration->{'userId'})) {
 						Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
-						if($callback) {
+						if(defined($callback)) {
 							&{$callback}();
 						}
-					});
-				}
-			},
-			sub {
-				$log->warn("Failed to update address in cloud, player ".$player->name()." needs to be re-registered");
-				registerPlayer($player,$callback);
-			},
-			$httpParams
-			)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
-				'jsonrpc' => '2.0',
-				'id' => 1,
-				'method' => 'setDeviceAddress',
-				'params' => {
-					'deviceId' => $uuid,
-					'address' => $serverIP
-				}
-			}));
+					}else {
+						getUserIdForPlayer($player, sub {
+							Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
+							if($callback) {
+								&{$callback}();
+							}
+						});
+					}
+				},
+				sub {
+					$log->warn("Failed to update address in cloud, player ".$player->name()." needs to be re-registered");
+					registerPlayer($player,$callback);
+				},
+				$httpParams
+				)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$playerConfiguration->{'accessToken'},to_json({
+					'jsonrpc' => '2.0',
+					'id' => 1,
+					'method' => 'setDeviceAddress',
+					'params' => {
+						'deviceId' => $uuid,
+						'address' => $serverIP
+					}
+				}));
+		}else {
+			Plugins::IckStreamPlugin::PlayerService::sendPlayerStatusChangedNotification($player);
+		}
 	}
 }
 
