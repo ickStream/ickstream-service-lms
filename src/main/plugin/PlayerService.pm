@@ -152,6 +152,7 @@ sub registerPlayer {
 			my $applicationId = shift;
 			
 			my $cloudCoreUrl = $playerConfiguration->{'cloudCoreUrl'} || ${Plugins::IckStreamPlugin::Configuration::HOST}.'/ickstream-cloud-core/jsonrpc';
+			my $serverIP = Slim::Utils::IPDetect::IP();
 			my $httpParams = { timeout => 35 };
 			Slim::Networking::SimpleAsyncHTTP->new(
 				sub {
@@ -162,6 +163,7 @@ sub registerPlayer {
 						$playerConfiguration = $prefs->client($client)->get('playerConfiguration') || {};
 						$playerConfiguration->{'playerModel'} = $jsonResponse->{'result'}->{'model'};
 						$playerConfiguration->{'accessToken'} = $jsonResponse->{'result'}->{'accessToken'};
+						$playerConfiguration->{'ipAddress'} = $serverIP;
 						if(defined($jsonResponse->{'result'}->{'userId'})) {
 							$playerConfiguration->{'userId'} = $jsonResponse->{'result'}->{'userId'};
 							$prefs->client($client)->set('playerConfiguration',$playerConfiguration);
@@ -203,7 +205,7 @@ sub registerPlayer {
 				'params' => {
 					'applicationId' => $applicationId,
 					'hardwareId' => $uuid,
-					'address' =>  Slim::Utils::IPDetect::IP()
+					'address' =>  $serverIP
 				}
 			}));
 		},
