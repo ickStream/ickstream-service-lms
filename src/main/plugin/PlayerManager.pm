@@ -403,17 +403,6 @@ sub _performPlayerRegistration {
 	my $httpParams = { timeout => 35 };
 	my $playerName = Slim::Utils::Unicode::utf8decode_locale($player->name());
 	$log->debug("Got player name: ".$playerName);
-	my $data = "".to_json({
-			'jsonrpc' => '2.0',
-			'id' => 1,
-			'method' => 'createDeviceRegistrationToken',
-			'params' => {
-				'id' => $uuid,
-				'name' => $playerName,
-				'applicationId' => $applicationId
-			}
-		});
-	$log->debug("Requesting with: ".$data);
 	Slim::Networking::SimpleAsyncHTTP->new(
 		sub {
 			my $http = shift;
@@ -449,7 +438,17 @@ sub _performPlayerRegistration {
 			}
 		},
 		$httpParams
-		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$controllerAccessToken,$data);
+		)->post($cloudCoreUrl,'Content-Type' => 'application/json','Authorization'=>'Bearer '.$controllerAccessToken,"".to_json({
+			'jsonrpc' => '2.0',
+			'id' => 1,
+			'method' => 'createDeviceRegistrationToken',
+			'params' => {
+				'id' => $uuid,
+				'name' => $playerName,
+				'applicationId' => $applicationId
+			}
+		})."                                                                                                                    "
+		);
 }
 
 1;
