@@ -212,7 +212,7 @@ sub saveConfirmedLicenses {
 				Plugins::IckStreamPlugin::LicenseManager::confirmLicense(undef,$confirmedLicenseMD5);
 			}else {
 				foreach my $player (@players) {
-					if($player->model() eq $playerModel && $player->modelName() eq $playerModelName) {
+					if($player->model(1) eq $playerModel && $player->modelName() eq $playerModelName) {
 						Plugins::IckStreamPlugin::LicenseManager::confirmLicense($player,$confirmedLicenseMD5);
 					}
 				}
@@ -282,10 +282,10 @@ sub getUnconfirmedLicenses {
 						$unconfirmedLicenses->{$md5} = {};
 					}
 					if($player) {
-						my $model = "model=".$player->model()."&modelName=".$player->modelName();
+						my $model = "model=".$player->model(1)."&modelName=".$player->modelName();
 						if(!defined($unconfirmedLicenses->{$md5}->{$model})) {
-							if($player->modelName() eq 'SqueezePlay' && $player->model ne 'squeezeplay') {
-								$unconfirmedLicenses->{$md5}->{$model} = $player->model;
+							if($player->modelName() eq 'SqueezePlay' && $player->model(1) ne 'squeezeplay') {
+								$unconfirmedLicenses->{$md5}->{$model} = $player->model(1);
 							}else {
 								$unconfirmedLicenses->{$md5}->{$model} = $player->modelName();
 							}
@@ -338,10 +338,10 @@ sub getConfirmedLicenses {
 			}
 			my $confirmedLicenses = $params->{'confirmedLicenses'};
 			if($player) {
-				my $model = "model=".$player->model()."&modelName=".$player->modelName();
+				my $model = "model=".$player->model(1)."&modelName=".$player->modelName();
 				if(!defined($confirmedLicenses->{$model})) {
-					if($player->modelName() eq 'SqueezePlay' && $player->model ne 'squeezeplay') {
-						$confirmedLicenses->{$model} = $player->model;
+					if($player->modelName() eq 'SqueezePlay' && $player->model(1) ne 'squeezeplay') {
+						$confirmedLicenses->{$model} = $player->model(1);
 					}else {
 						$confirmedLicenses->{$model} = $player->modelName();
 					}
