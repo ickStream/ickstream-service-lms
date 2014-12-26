@@ -259,7 +259,7 @@ sub _getDeviceModel {
 	my $player = shift;
 	my $deviceModel = "lms";
 	if($player) {
-		$deviceModel = $player->model();
+		$deviceModel = $player->model(1);
 	}
 	return $deviceModel;
 }
