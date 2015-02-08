@@ -373,6 +373,21 @@ sub _performPlayerInitialization {
 	}
 }
 
+sub _getAccessToken() {
+	if(defined($prefs->get('accessToken'))) {
+		return $prefs->get('accessToken');
+	}
+	my @players = Slim::Player::Client::clients();
+
+	foreach my $player (@players) {
+		my $playerConfiguration = $prefs->client($player)->get('playerConfiguration');
+		if(defined($playerConfiguration->{'accessToken'})) {
+			return $playerConfiguration->{'accessToken'};
+		}
+	}
+	return undef;
+}
+
 sub _performPlayerRegistration {
 	my $applicationId = shift;
 	my $player = shift;
@@ -390,7 +405,7 @@ sub _performPlayerRegistration {
 		$prefs->client($player)->set('playerConfiguration',$playerConfiguration);
 	}
 
-	my $controllerAccessToken = $prefs->get('accessToken');
+	my $controllerAccessToken = _getAccessToken();
 	if(!defined($controllerAccessToken)) {
 		$log->warn("Player(".$player->name().") must be manually registered since user is not logged in to ickStream Music Platform");
 		if(defined($callback)) {

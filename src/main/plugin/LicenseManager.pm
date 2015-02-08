@@ -46,6 +46,58 @@ my $initializedPlayers = {};
 my $initializedPlayerDaemon = undef;
 my $PUBLISHER = 'AC9BFD85-26F6-4A97-BEB1-2DE43835A2F0';
 
+sub init {
+	Slim::Control::Request::addDispatch(['ickstream','license','?'], [1, 1, 0, \&getLicenseCLI]);
+	Slim::Control::Request::addDispatch(['ickstream','license'], [1, 0, 1, \&confirmLicenseCLI]);
+}
+
+
+sub getLicenseCLI {
+		my $request = shift;
+		my $client = $request->client();
+
+		if(!defined $client) {
+                $log->warn("Client required\n");
+                $request->setStatusNeedsClient();
+                return;
+        }
+		getLicense($client, undef, undef,
+			sub {
+				my $md5 = shift;
+				my $license = shift;
+				$request->addResult("confirmed", isLicenseConfirmed($client));
+				$request->addResult("md5", $md5);
+				$request->addResult("license", $license);
+				$request->setStatusDone();
+			},
+			sub {
+				$log->warn("Error when retreiving license for ".$client->name());
+				$request->setStatusBadDispatch();
+			});
+}
+
+sub confirmLicenseCLI {
+		my $request = shift;
+		my $client = $request->client();
+
+		if(!defined $client) {
+                $log->warn("Client required\n");
+                $request->setStatusNeedsClient();
+                return;
+        }
+
+		if(defined($request->getParam('md5'))) {
+			$log->debug("Confirming license: ".$request->getParam('md5'));
+			confirmLicense($client, $request->getParam('md5'));
+			$request->setStatusDone();
+			return;
+		}
+		$log->warn("Parameter md5 must be specified");
+		$request->setStatusBadParams();
+		$request->setStatusDone();
+}
+
+
 sub getApplicationId {
 	my $player = shift;
 	my $cbSuccess = shift;
@@ -162,6 +214,7 @@ sub confirmLicense {
 	my $confirmedLicenses = $prefs->get('confirmedLicenses');	
 	my $deviceModelName = _getDeviceModelName($player);
 	$confirmedLicenses->{_getDeviceModel($player).(defined($deviceModelName)?"_".$deviceModelName:"")} = $md5;
+	$prefs->set('confirmedLicenses',$confirmedLicenses);
 }
 
 sub _retrieveApplicationId {

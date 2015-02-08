@@ -51,6 +51,7 @@ use Plugins::IckStreamPlugin::LocalServiceManager;
 use Plugins::IckStreamPlugin::CloudServiceManager;
 use Plugins::IckStreamPlugin::PlayerServer;
 use Plugins::IckStreamPlugin::PlayerService;
+use Plugins::IckStreamPlugin::PlayerServiceCLI;
 use Plugins::IckStreamPlugin::BrowseManager;
 use Plugins::IckStreamPlugin::ProtocolHandler;
 use Plugins::IckStreamPlugin::LocalProtocolHandler;
@@ -218,6 +219,8 @@ sub initPlugin {
 	
 	Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 3, \&startServers,$class);
 	Slim::Control::Request::addDispatch(['ickstream','player','?'], [1, 1, 0, \&Plugins::IckStreamPlugin::PlayerManager::playerEnabledQuery]);
+	Plugins::IckStreamPlugin::PlayerServiceCLI::init();
+	Plugins::IckStreamPlugin::LicenseManager::init();
 
 	Slim::Control::Request::subscribe(\&Plugins::IckStreamPlugin::PlayerManager::playerChange,[['client']]);
 	Slim::Control::Request::subscribe(\&Plugins::IckStreamPlugin::BrowseManager::playerChange,[['client']]);
