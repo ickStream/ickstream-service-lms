@@ -232,6 +232,9 @@ sub getPlayerConfiguration {
         	'cloudCoreUrl' => $cloudCoreUrl,
         	'playerName' => $client->name()
         };
+        if(defined($playerConfiguration->{'id'})) {
+        	$result->{'id'} = $playerConfiguration->{'id'};
+        }
         if(defined($playerConfiguration->{'playerModel'})) {
         	$result->{'playerModel'} = $playerConfiguration->{'playerModel'};
         }

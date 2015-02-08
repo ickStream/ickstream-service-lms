@@ -358,6 +358,21 @@ sub getConfirmedLicenses {
 	}
 }
 
+
+sub getAccessToken() {
+	if(defined($prefs->get('accessToken'))) {
+		return $prefs->get('accessToken');
+	}
+	my @players = Slim::Player::Client::clients();
+
+	foreach my $player (@players) {
+		my $playerConfiguration = $prefs->client($player)->get('playerConfiguration');
+		if(defined($playerConfiguration->{'accessToken'})) {
+			return $playerConfiguration->{'accessToken'};
+		}
+	}
+	return undef;
+}
 	
 sub getUserInformation {
 	my ($callback, $params) = @_;
@@ -365,7 +380,7 @@ sub getUserInformation {
 	Plugins::IckStreamPlugin::LicenseManager::getApplicationId(undef,
 		sub {
 			my $applicationId = shift;
-			if($prefs->get('accessToken')) {
+			if(getAccessToken()) {
 				$params->{'manageAccountUrl'} = _getManageAccountUrl();
 				$log->debug("Retrieving information about user account");
 				my $httpParams = { timeout => 35 };
@@ -389,7 +404,7 @@ sub getUserInformation {
 						&{$callback}();
 					},
 					$httpParams
-				)->post(_getCloudCoreUrl(),'Content-Type' => 'application/json','Authorization'=>'Bearer '.$prefs->get('accessToken'),to_json({
+				)->post(_getCloudCoreUrl(),'Content-Type' => 'application/json','Authorization'=>'Bearer '.getAccessToken(),to_json({
 					'jsonrpc' => '2.0',
 					'id' => 1,
 					'method' => 'getUser',
