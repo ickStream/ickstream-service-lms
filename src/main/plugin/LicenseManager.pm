@@ -65,9 +65,11 @@ sub getLicenseCLI {
 			sub {
 				my $md5 = shift;
 				my $license = shift;
-				$request->addResult("confirmed", isLicenseConfirmed($client));
-				$request->addResult("md5", $md5);
-				$request->addResult("license", $license);
+				if(isLicenseConfirmed($client)) {
+					$request->addResult("confirmedLicenseCode", isLicenseConfirmed($client));
+				}
+				$request->addResult("licenseCode", $md5);
+				$request->addResult("licenseUrl", "/plugins/IckStreamPlugin/license.html?model=".uri_escape_utf8(_getDeviceModel($client))."&modelName=".uri_escape_utf8(_getDeviceModelName($client)));
 				$request->setStatusDone();
 			},
 			sub {
@@ -86,13 +88,13 @@ sub confirmLicenseCLI {
                 return;
         }
 
-		if(defined($request->getParam('md5'))) {
-			$log->debug("Confirming license: ".$request->getParam('md5'));
-			confirmLicense($client, $request->getParam('md5'));
+		if(defined($request->getParam('licenseCode'))) {
+			$log->debug("Confirming license: ".$request->getParam('licenseCode'));
+			confirmLicense($client, $request->getParam('licenseCode'));
 			$request->setStatusDone();
 			return;
 		}
-		$log->warn("Parameter md5 must be specified");
+		$log->warn("Parameter licenseCode must be specified");
 		$request->setStatusBadParams();
 		$request->setStatusDone();
 }
