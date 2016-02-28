@@ -499,7 +499,7 @@ sub canDirectStreamSong {
 	}
 	my ($trackId,$serviceId) = _getStreamParams($song->track->url());
 	$log->debug("$serviceId for: ".$song->track->url());
-	if($prefs->get("proxiedStreamingForHires") && ($serviceId eq 'tidal' || $serviceId eq 'wimp' || $serviceId eq 'qobuz')) {
+	if($prefs->get("proxiedStreamingForHires") && ($serviceId eq 'tidal' || $serviceId eq 'wimp' || $serviceId eq 'qobuz' || $serviceId eq 'deezer')) {
 		$url = 0;
 	}
 	$log->debug("canDirectStreamSong: ".$url);
