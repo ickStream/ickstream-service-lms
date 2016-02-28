@@ -850,7 +850,12 @@ sub processServiceChildRequestMenu {
 				}
 			}else {
 	        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
-				$menu->{'play'} = _getProtocolHandler($item->{'id'}).'://'.$item->{'id'};
+	            my $myProtocolHandler = _getProtocolHandler($item->{'id'});
+	            if(!defined($myProtocolHandler)) {
+	                $menu->{'play'} = $item->{'id'};
+	            }else{
+	                $menu->{'play'} = $myProtocolHandler.'://'.$item->{'id'};
+	            }
 				$menu->{'type'} = 'audio';
 				$menu->{'on_select'} = 'play';
 				$menu->{'playall'} = 1;
@@ -1066,7 +1071,12 @@ sub processServiceItemMenu {
 				}
 			}else {
 	        	Plugins::IckStreamPlugin::ItemCache::setItemInCache($item->{'id'},$item);
-				$menu->{'play'} = _getProtocolHandler($item->{'id'}).'://'.$item->{'id'};
+	            my $myProtocolHandler = _getProtocolHandler($item->{'id'});
+	            if(!defined($myProtocolHandler)) {
+	                $menu->{'play'} = $item->{'id'};
+	            }else{
+	                $menu->{'play'} = $myProtocolHandler.'://'.$item->{'id'};
+	            }
 				$menu->{'type'} = 'audio';
 				$menu->{'on_select'} => 'play';
 				$menu->{'playall'} => 1;
@@ -1128,7 +1138,9 @@ sub _getProtocolHandler {
 	my $id = shift;
 	
 	my $protocolHandler = 'ickstream';
-	if($id =~ /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}):lms:/) {
+	if($id =~ /^spotify/) {
+	    $protocolHandler = undef;
+	}elsif($id =~ /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}):lms:/) {
 		if($1 eq $prefs->get('uuid')) {
 			$protocolHandler = 'ickstreamlocal';
 		}
